@@ -1,8 +1,9 @@
+import { t as tl, getLang } from './i18n.js';
 const KEY = 'bah-llm-web.llm';
 let controller = null;
 
 export const SYSTEM = `You convert an origami engineer's request (Korean or English) into JSON edit operations for a bar-and-hinge (MERLIN2 style) origami model spec.
-Reply with ONE JSON object only: {"ops": [...], "reply": "<short Korean sentence describing what you did or what is unclear>"}.
+Reply with ONE JSON object only: {"ops": [...], "reply": "<short sentence describing what you did or what is unclear, in the reply language given below>"}.
 Never invent node coordinates. Units are mm, N, tonne, s, MPa. Convert: kN->N x1000, m->mm x1000, kPa->MPa x0.001, GPa->MPa x1000.
 Node numbers in the user's words are 1-based (as shown on screen, "59번 절점" = node index 58 in "nodes":[...] which is 0-based).
 The model has only translational dofs (bars + rotational springs); there are no rotations and no moments.
@@ -67,11 +68,11 @@ export function provider(url) {
   try {
     u = new URL(url);
   } catch (e) {
-    return '미설정';
+    return tl('미설정');
   }
   const h = u.hostname;
-  if (['localhost', '127.0.0.1', '::1'].includes(h)) return u.port === '11434' ? 'Ollama (이 컴퓨터)' : u.port === '1234' ? 'LM Studio (이 컴퓨터)' : '로컬 서버 (이 컴퓨터)';
-  return { 'api.openai.com': 'OpenAI API', 'generativelanguage.googleapis.com': 'Google Gemini API', 'api.anthropic.com': 'Anthropic API', 'openrouter.ai': 'OpenRouter' }[h] || `외부 서버 ${h}`;
+  if (['localhost', '127.0.0.1', '::1'].includes(h)) return u.port === '11434' ? tl('Ollama (이 컴퓨터)') : u.port === '1234' ? tl('LM Studio (이 컴퓨터)') : tl('로컬 서버 (이 컴퓨터)');
+  return { 'api.openai.com': 'OpenAI API', 'generativelanguage.googleapis.com': 'Google Gemini API', 'api.anthropic.com': 'Anthropic API', 'openrouter.ai': 'OpenRouter' }[h] || tl('외부 서버 {h}', { h });
 }
 
 function headers(c) {
@@ -93,7 +94,7 @@ export async function status(c) {
     host = new URL(c.url).host;
   } catch (e) {}
   const base = { provider: provider(c.url), host, key_set: !!c.key };
-  if (!configured(c)) return { ...base, ok: false, error: 'LLM 이 설정되지 않았습니다', models: [] };
+  if (!configured(c)) return { ...base, ok: false, error: tl('LLM 이 설정되지 않았습니다'), models: [] };
   try {
     const t = performance.now();
     const r = await fetch(c.url.replace(/\/$/, '') + '/models', { headers: headers(c), signal: AbortSignal.timeout(5000) });
@@ -102,7 +103,7 @@ export async function status(c) {
     const names = (j.data || []).map((m) => String(m.id).replace(/^models\//, ''));
     return { ...base, ok: true, ms: Math.round(performance.now() - t), models: names, has_model: names.includes(c.model.replace(/^models\//, '')) };
   } catch (e) {
-    return { ...base, ok: false, error: String(e.message || e) + ' (브라우저에서 직접 부를 때는 그 서버가 CORS 를 허용해야 합니다. Ollama 는 OLLAMA_ORIGINS="*" 로 실행)', models: [] };
+    return { ...base, ok: false, error: String(e.message || e) + tl(' (브라우저에서 직접 부를 때는 그 서버가 CORS 를 허용해야 합니다. Ollama 는 OLLAMA_ORIGINS="*" 로 실행)'), models: [] };
   }
 }
 
@@ -113,7 +114,7 @@ function extract(text) {
   } catch (e) {}
   const a = text.indexOf('{'), b = text.lastIndexOf('}');
   if (a >= 0 && b > a) return JSON.parse(text.slice(a, b + 1));
-  throw new Error('LLM 응답에서 JSON을 찾지 못했습니다');
+  throw new Error(tl('LLM 응답에서 JSON을 찾지 못했습니다'));
 }
 
 async function post(c, messages, timeout) {
@@ -147,21 +148,21 @@ export function context(geo, spec, meta, picked) {
 }
 
 export async function ask(c, text, ctx, history, error) {
-  const msgs = [{ role: 'system', content: SYSTEM }, { role: 'user', content: ctx }];
+  const msgs = [{ role: 'system', content: SYSTEM + `\nReply language: ${getLang() === 'ko' ? 'Korean (polite)' : 'English'}.` }, { role: 'user', content: ctx }];
   for (const h of (history || []).slice(-6)) msgs.push(h);
   msgs.push({ role: 'user', content: text });
   if (error) msgs.push({ role: 'user', content: `The previous ops failed validation: ${error}\nReturn corrected JSON.` });
   const resp = await post(c, msgs);
   const data = extract(resp.choices[0].message.content);
-  if (!Array.isArray(data.ops || [])) throw new Error('ops 가 배열이 아닙니다');
+  if (!Array.isArray(data.ops || [])) throw new Error(tl('ops 가 배열이 아닙니다'));
   return { ops: data.ops || [], reply: String(data.reply || '') };
 }
 
 export async function test(c) {
-  if (!configured(c)) return { ok: false, error: 'LLM 이 설정되지 않았습니다' };
+  if (!configured(c)) return { ok: false, error: tl('LLM 이 설정되지 않았습니다') };
   const t = performance.now();
   try {
-    const r = await post(c, [{ role: 'system', content: 'Reply with JSON only.' }, { role: 'user', content: 'Return {"ok": true, "reply": "연결 확인"}' }], 120000);
+    const r = await post(c, [{ role: 'system', content: 'Reply with JSON only.' }, { role: 'user', content: 'Return {"ok": true, "reply": "connection ok"}' }], 120000);
     const txt = r.choices[0].message.content;
     let ok = false;
     try {

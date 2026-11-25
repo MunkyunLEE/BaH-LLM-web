@@ -32,7 +32,7 @@
     </section>
     <section id="bhPanel">
       <h2>바-힌지 <small id="bhCount"></small></h2>
-      <div class="row two"><label title="접힘 강성 길이 척도 L* (mm, Filipov 2017). K_F = 1/(L*/(L_F·k) + 1/(0.55·k·(L_F/t)^(1/3))), k = Et³/12(1-ν²). 비우면 L* = 3·L_F (MERLIN2 LScaleFactor)">L* (mm)<input id="bhLstar" type="number" step="any" min="0" placeholder="자동 3·L_F"></label><label class="check" title="기하 접촉: 면끼리 관통 방지 (IPC 장벽 + 연속 충돌 검사). 마찰·감쇠 없음. 강제 변위 해석에서만"><input type="checkbox" id="bhContact">기하 접촉</label></div>
+      <div class="row two"><label title="접힘 강성 길이 척도 L* (mm, Filipov 2017). K_F = 1/(L*/(L_F·k) + 1/(0.55·k·(L_F/t)^(1/3))), k = Et³/12(1-ν²). 비우면 L* = 3·L_F (MERLIN2 LScaleFactor)">L* (mm)<input id="bhLstar" type="number" step="any" min="0" placeholder="자동 3·L_F"></label><label class="check" title="기하 접촉: 면끼리 관통 방지 (IPC 장벽 + 연속 충돌 검사). 마찰·감쇠 없음. 정적·호장법 해석에서 적용"><input type="checkbox" id="bhContact">기하 접촉</label></div>
       <div class="row"><label class="check" title="접힘 주름을 탄소성 힌지로 (Tang 2026). 길이당 항복 모멘트 m_p = σy·t²/4"><input type="checkbox" id="bhPH">소성 힌지 (m<sub>p</sub> = σ<sub>y</sub>t²/4)</label></div>
       <div class="row two"><label class="check" title="강제 변위를 0 → 목표 → 0 으로 여러 번 왕복"><input type="checkbox" id="bhCyc">반복 하중</label><label id="bhCycNBox">반복 횟수<input id="bhCycN" type="number" min="1" step="1" placeholder="3"></label></div>
       <div class="row"><button id="bhEdit" type="button" title="켜면 마우스 왼쪽 드래그가 상자 선택이 됩니다. 왼→오: 완전히 들어간 엣지, 오→왼: 걸친 엣지. Shift 추가, Ctrl 제외, Esc 해제, 클릭은 한 개">주름 편집 모드 끔</button></div>

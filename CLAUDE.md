@@ -16,7 +16,7 @@
 - 대칭 검증: `python3 tests/feature/symmetry.py`
 - 접촉 검증: `python3 tests/feature/contact.py`
 - 수치 미분: `core/tools/fdcheck.cpp`
-- 문장 규칙: `node tests/web/rules_probe.mjs`
+- 문장 규칙: `node tests/web/rules_regress.mjs` (한국어·영어 사례 `rules_cases.json`, 새 한국어 사례는 `record` 로 기록), 자유 탐색 `node tests/web/rules_probe.mjs`
 - 예제: `python3 web/examples/make_examples.py` → `web/examples/presets.json`
 
 ## 구조 요점
@@ -26,5 +26,8 @@
 - 해석 뒤 기본 그래프: 스텝-에너지, 스텝-힘. 문장으로 스텝-변위, 변위-힘, 변위-에너지, 주름 이면각(`angle`), 해 공간(`add_plot` `type: space3`, 주름 3개) 추가
 - 자유도 `dofInfo`·기구 경로 `foldPath`·기구 모드 `nullModes`·해 공간 `solutionSpace` (solver.cpp, Python `analysis.py` 와 같은 방법). WASM `bh_dof`, `bh_space`. 모든 결과 요약에 자유도 표시
 - 주름은 화면에서 1부터 "2-7 주름", 내부 키는 0부터 "1-6"
-- Theory 문서: `web/docs/overview.md` (원 논문·이론 정리) → `equations.md` → `verification.md`. README 맨 위 원 논문 강조는 유지
+- 언어: `web/i18n.js` (`t(한국어 원문, {변수})`, 브라우저 언어가 ko 면 한국어, 아니면 영어, EN/KR 버튼, localStorage `bah-lang`), 영어 문구는 `web/i18n_en.js`. 새 화면·메시지 문구는 반드시 `t()` 로 감싸고 영어를 추가. 스펙에 저장하는 이름(구속 이름 등)은 한국어 원문으로 두고 표시할 때 번역
+- 문장 규칙: 낱말은 `web/rules_vocab.js` (한국어 + 영어), 흐름은 `web/rules.js`. 새 표현은 사전에 추가
+- 예제 영어: `make_examples.py` 의 `EN` (title_en, note_en, prompts_en)
+- Theory 문서: `web/docs/overview.md` (원 논문·이론 정리) → `equations.md` → `verification.md`, 영어판 `*.en.md` 도 같이 갱신. README 는 영어 위주(외국인 사용자가 많음), 맨 위 원 논문 강조는 유지
 - 논문·MATLAB 원본은 저장소에 올리지 않음 (사용자 맥 `FEM-LLM-web/bar-and-hinge_model/`)

@@ -1,3 +1,4 @@
+import { t as tl } from './i18n.js';
 export function parseOBJ(text, name) {
   const nodes = [];
   const panels = [];
@@ -27,7 +28,7 @@ export function parseOBJ(text, name) {
       for (let i = 0; i + 1 < l.length; i++) lines.push([l[i], l[i + 1]]);
     }
   }
-  if (!nodes.length || !panels.length) throw new Error('OBJ 에 정점(v)과 면(f)이 있어야 합니다');
+  if (!nodes.length || !panels.length) throw new Error(tl('OBJ 에 정점(v)과 면(f)이 있어야 합니다'));
   return clean({ name, nodes, panels, lines, groups });
 }
 

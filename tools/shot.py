@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import sys
 
 from playwright.async_api import async_playwright
@@ -10,7 +11,7 @@ URL = "http://localhost:8766/index.html"
 async def main(example, out, steps):
     async with async_playwright() as p:
         b = await p.chromium.launch(executable_path="/usr/bin/google-chrome", args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"])
-        pg = await b.new_page(viewport={"width": 1600, "height": 950})
+        pg = await b.new_page(viewport={"width": 1600, "height": 950}, locale=os.environ.get("SHOT_LANG", "ko-KR"))
         logs = []
         pg.on("console", lambda m: logs.append(f"{m.type}: {m.text}"))
         pg.on("pageerror", lambda e: logs.append(f"PAGEERROR: {e}"))
@@ -30,7 +31,7 @@ async def main(example, out, steps):
                 for _ in range(600):
                     await pg.wait_for_timeout(500)
                     t = await pg.inner_text("#solve")
-                    if t == "해석 실행":
+                    if t in ("해석 실행", "Run analysis"):
                         break
                 await pg.wait_for_timeout(1500)
             elif st.startswith("frame:"):
@@ -46,7 +47,7 @@ async def main(example, out, steps):
                 await pg.evaluate(st[5:])
                 await pg.wait_for_timeout(500)
         await pg.screenshot(path=out, full_page=False)
-        info = await pg.evaluate("(()=>({msg: document.getElementById('solveMsg').innerText, summary: document.getElementById('summary').innerText.slice(0,400), chat: [...document.querySelectorAll('#chatLog .msg')].map(m=>m.innerText).slice(-4), plots: [...document.querySelectorAll('.plot .ptitle')].map(p=>p.innerText)}))()")
+        info = await pg.evaluate("(()=>({msg: document.getElementById('solveMsg').innerText, summary: document.getElementById('summary').innerText.slice(0,400), chat: [...document.querySelectorAll('#chatLog .msg')].map(m=>m.innerText).slice(-4), plots: [...document.querySelectorAll('.plot .ptitle')].map(p=>p.innerText), missing: [...(window.__i18nMissing || [])]}))()")
         print(json.dumps(info, ensure_ascii=False))
         for l in logs:
             if "error" in l.lower() or "PAGEERROR" in l:

@@ -1,4 +1,6 @@
 import fs from 'fs';
+const I = await import('../../web/i18n.js');
+I.setLang('ko');
 const R = await import('../../web/rules.js');
 const B = await import('../../web/backend.js');
 const { parseOBJ } = await import('../../web/geometry.js');

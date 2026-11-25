@@ -242,5 +242,41 @@ P["flap_contact"] = {
     ],
 }
 
+EN = {
+    "miura_fold": ("1. Miura 3x3 folding (prescribed displacement, N5B8 auto stiffness)",
+                   "x min edge constrained in x, one node fully fixed, x max edge pushed -15 mm in x to fold. MERLIN2 displacement loading (damped Newton).",
+                   ["move x max edge by -15 mm in x", "node 1 force-displacement plot", "fold energy plot", "run"]),
+    "hexagon_twist": ("2. Hexagonal panel twist (MERLIN2 PolygonTest, arc-length)",
+                      "Same as MERLIN2 PolygonTest: Mylar E 5 GPa, ν 0.35, t 0.127. Node 5 loaded with -z 1 N, arc-length (MGDCM). Stops at 12 mm z displacement of node 5.",
+                      ["node 5 force-displacement plot", "run"]),
+    "kresling_cycle": ("3. Single Kresling, cyclic compression (plastic hinges, Tang 2026)",
+                       "Bottom ring fixed, top ring pushed -12 mm in z and returned, 3 cycles. Aluminum, thickness 0.3, elasto-plastic fold hinges (yield moment 0.05 N·mm/mm per length, hardening 0.05, calibrated along creases as in Tang 2026).",
+                       ["run", "energy plot", "node 7 force-displacement plot"]),
+    "simple_fold": ("4. Single crease fold (geometry of Tang 2026 Fig. 4)",
+                    "Triangle ABC fixed, point D lifted in z to fold crease AB. Aluminum, plastic hinge.",
+                    ["node 4 force-displacement plot", "run"]),
+    "miura_modal": ("5. Miura free-free modal (with mass)",
+                    "Eigen analysis without supports. Six rigid-body modes come first, then folding modes (trend of Filipov 2017 Fig. 11).",
+                    ["run", "10 modes"]),
+    "miura_symmetry": ("6. Half Miura + x symmetry plane (mirror condition)",
+                       "Only the left half of a 6x4 Miura is modelled; the x max edge is the symmetry plane. x min edge fixed, the top node on the plane pushed 4 mm down. Turn on mirror display to draw the other half.",
+                       ["hide mirror", "run"]),
+    "pressure_sheet": ("7. Pressure on a corrugated sheet (Local normal load, arc-length)",
+                       "Corrugated sheet in x (l lines = folds). Both x ends fixed, 0.0005 MPa pressure on all faces along the face normal (Local). Arrow direction follows the face vertex order and can be changed with 'Flip direction'.",
+                       ["ld1 x2", "pressure 0.0005 MPa downward on all faces", "run"]),
+    "kirigami_slit": ("8. Kirigami slit sheet in tension (Khawale 2026 stiffness, cuts)",
+                      "All interior edges 'bend', four middle slits 'cut', triangle mesh stiffness by Khawale (F_s 0.85, F_B 0.125). x min edge fixed, x max edge pulled 6 mm in x. Initial imperfection 0.01 mm.",
+                      ["run", "energy plot"]),
+    "miura_kinematic": ("9. Miura rigid folding (kinematic analysis)",
+                        "Rigid panels. One driver crease is rotated to a target dihedral angle to trace the folding path (1 mechanism).",
+                        ["run", "solution space of creases 2-7, 7-12, 6-7"]),
+    "flap_contact": ("10. Flap folding onto a base plate (geometric contact, arc-length)",
+                     "Four corners of the base plate fixed, downward force on the free edge (nodes 5, 6) of a flap standing at 45°. With a 0.5 mm contact gap the flap stops without passing through the plate. After contact the stiffness rises, so the MGDCM load factor jumps.",
+                     ["contact energy plot", "node 5 force-displacement plot", "run"]),
+}
+for k, (t, n, pr) in EN.items():
+    if k in P:
+        P[k]["title_en"], P[k]["note_en"], P[k]["prompts_en"] = t, n, pr
+
 json.dump(P, open(os.path.join(HERE, "presets.json"), "w"), ensure_ascii=False, indent=1)
 print("examples", list(P))

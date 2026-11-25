@@ -18,7 +18,7 @@ h3 { font-size: 15px; margin: 18px 0 6px; color: #ffd84a; } nav { position: stic
 </head>
 <body>
 <main>
-<nav><a href="index.html">← 앱으로</a><a href="#ov">이론 정리</a><a href="#eq">수식 대장</a><a href="#ver">검증 결과</a></nav>
+<nav><a href="index.html" id="nBack">← 앱으로</a><a href="#ov" id="nOv">이론 정리</a><a href="#eq" id="nEq">수식 대장</a><a href="#ver" id="nVer">검증 결과</a><a href="#" id="nLang" style="float:right">EN</a></nav>
 <div id="ov"></div>
 <div id="eq"></div>
 <div id="ver"></div>
@@ -51,11 +51,32 @@ function md(src) {
   }
   return out.join('\n');
 }
-(async () => {
-  document.getElementById('ov').innerHTML = md(await (await fetch('docs/overview.md')).text());
-  document.getElementById('eq').innerHTML = md(await (await fetch('docs/equations.md')).text());
-  document.getElementById('ver').innerHTML = md(await (await fetch('docs/verification.md')).text());
-})();
+function lang() {
+  try {
+    const s = localStorage.getItem('bah-lang');
+    if (s === 'ko' || s === 'en') return s;
+  } catch (e) {}
+  return /^ko/i.test((navigator.languages || [navigator.language])[0] || '') ? 'ko' : 'en';
+}
+const NAV = { ko: ['← 앱으로', '이론 정리', '수식 대장', '검증 결과', 'EN', 'BaH-LLM-web · 수식과 검증'], en: ['← Back to app', 'Theory', 'Equation ledger', 'Verification', 'KR', 'BaH-LLM-web · equations and verification'] };
+async function load() {
+  const L = lang();
+  const sfx = L === 'ko' ? '' : '.en';
+  document.documentElement.lang = L;
+  ['nBack', 'nOv', 'nEq', 'nVer', 'nLang'].forEach((id, i) => (document.getElementById(id).textContent = NAV[L][i]));
+  document.title = NAV[L][5];
+  document.getElementById('ov').innerHTML = md(await (await fetch(`docs/overview${sfx}.md`)).text());
+  document.getElementById('eq').innerHTML = md(await (await fetch(`docs/equations${sfx}.md`)).text());
+  document.getElementById('ver').innerHTML = md(await (await fetch(`docs/verification${sfx}.md`)).text());
+}
+document.getElementById('nLang').onclick = (e) => {
+  e.preventDefault();
+  try {
+    localStorage.setItem('bah-lang', lang() === 'ko' ? 'en' : 'ko');
+  } catch (err) {}
+  load();
+};
+load();
 </script>
 </body>
 </html>

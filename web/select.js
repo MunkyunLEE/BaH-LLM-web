@@ -1,3 +1,4 @@
+import { t as tl } from './i18n.js';
 const AX = { x: 0, y: 1, z: 2 };
 
 export function bbox(nodes) {
@@ -85,7 +86,7 @@ export function resolve(geo, sel) {
   }
   if (sel.boundary) {
     const ids = boundaryNodes(geo);
-    if (!ids.size) throw new Error('테두리(자유 엣지)가 없는 모델입니다');
+    if (!ids.size) throw new Error(tl('테두리(자유 엣지)가 없는 모델입니다'));
     parts.push(ids);
   }
   if (sel.corners) {
@@ -111,28 +112,28 @@ export function resolve(geo, sel) {
     });
     parts.push(new Set([best]));
   }
-  if (!parts.length) throw new Error(`선택 조건을 해석할 수 없습니다: ${JSON.stringify(sel)}`);
+  if (!parts.length) throw new Error(tl('선택 조건을 해석할 수 없습니다: {v}', { v: JSON.stringify(sel) }));
   let out = parts[0];
   for (const s of parts.slice(1)) out = new Set([...out].filter((i) => s.has(i)));
   return [...out].sort((a, b) => a - b);
 }
 
 export function describe(sel) {
-  if (!sel || sel.all) return '전체';
+  if (!sel || sel.all) return tl('전체');
   if (sel.and) return sel.and.map(describe).join(' ∩ ');
   if (sel.or) return sel.or.map(describe).join(' ∪ ');
   const out = [];
   if (sel.plane) out.push(`${sel.plane.axis || 'z'}=${sel.plane.at ?? 'min'}`);
-  if (sel.box) out.push('박스 영역');
-  if (sel.boundary) out.push('테두리');
-  if (sel.corners) out.push('모서리 점');
-  if (sel.nearest) out.push('절점 (' + sel.nearest.map((v) => +(+v).toPrecision(6)).join(', ') + ')');
-  if (sel.nodes) out.push(sel.nodes.length <= 6 ? `절점 ${sel.nodes.map((i) => '#' + (i + 1)).join(', ')}` : `절점 ${sel.nodes.length}개`);
+  if (sel.box) out.push(tl('박스 영역'));
+  if (sel.boundary) out.push(tl('테두리'));
+  if (sel.corners) out.push(tl('모서리 점'));
+  if (sel.nearest) out.push(tl('절점 ({v})', { v: sel.nearest.map((v) => +(+v).toPrecision(6)).join(', ') }));
+  if (sel.nodes) out.push(sel.nodes.length <= 6 ? tl('절점 {v}', { v: sel.nodes.map((i) => '#' + (i + 1)).join(', ') }) : tl('절점 {n}개', { n: sel.nodes.length }));
   if (sel.points || sel.segments) {
     const k = [];
-    if (sel.points && sel.points.length) k.push(`절점 ${sel.points.length}개`);
-    if (sel.segments && sel.segments.length) k.push(`선 ${sel.segments.length}개`);
-    out.push('선택한 ' + k.join(' + '));
+    if (sel.points && sel.points.length) k.push(tl('절점 {n}개', { n: sel.points.length }));
+    if (sel.segments && sel.segments.length) k.push(tl('선 {n}개', { n: sel.segments.length }));
+    out.push(tl('선택한 {v}', { v: k.join(' + ') }));
   }
   return out.join(' ∩ ');
 }

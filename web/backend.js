@@ -2,6 +2,7 @@ import { parseOBJ, panelEdges, edgeKey, scaleGeo } from './geometry.js';
 import { resolve, describe, facesOf, bbox, diagOf } from './select.js';
 import * as rules from './rules.js';
 import * as llm from './llm.js';
+import { t as tl, getLang } from './i18n.js';
 
 const G0 = 9806.65;
 
@@ -42,11 +43,11 @@ const nextId = (arr, p) => {
 };
 const num = (v, f) => {
   const x = +v;
-  if (!Number.isFinite(x)) throw new Error(`${f} 값이 숫자가 아닙니다: ${v}`);
+  if (!Number.isFinite(x)) throw new Error(tl('{f} 값이 숫자가 아닙니다: {v}', { f, v }));
   return x;
 };
 const vec = (v, f) => {
-  if (!Array.isArray(v) || v.length !== 3) throw new Error(`${f} 는 3개 성분이어야 합니다`);
+  if (!Array.isArray(v) || v.length !== 3) throw new Error(tl('{f} 는 3개 성분이어야 합니다', { f }));
   return v.map((x) => num(x, f));
 };
 
@@ -56,7 +57,7 @@ const AXN = { x: 0, y: 1, z: 2 };
 
 function planeCoord(geo, sel, axis) {
   const ids = resolve(geo, sel);
-  if (!ids.length) throw new Error('대칭면 위치를 정할 절점이 없습니다');
+  if (!ids.length) throw new Error(tl('대칭면 위치를 정할 절점이 없습니다'));
   const a = AXN[axis];
   return ids.reduce((s, i) => s + geo.nodes[i][a], 0) / ids.length;
 }
@@ -80,7 +81,7 @@ export function applyOps(spec0, ops, geo) {
   const log = [];
   let newGeo = null;
   for (const op of ops) {
-    if (!op || typeof op !== 'object' || !op.op) throw new Error(`잘못된 수정 지시: ${JSON.stringify(op)}`);
+    if (!op || typeof op !== 'object' || !op.op) throw new Error(tl('잘못된 수정 지시: {v}', { v: JSON.stringify(op) }));
     const k = op.op;
     const g = newGeo || geo;
     if (k === 'add_bc') {
@@ -89,29 +90,29 @@ export function applyOps(spec0, ops, geo) {
         const sel = op.select || { plane: { axis: SYM[t], at: 'min' } };
         const at = op.at ?? planeCoord(g, sel, SYM[t]);
         spec.symmetry.push({ id: nextId(spec.symmetry, 'sy'), axis: SYM[t], at });
-        log.push(`대칭 추가 ${SYM[t]} = ${at}`);
+        log.push(tl('대칭 추가 {a} = {v}', { a: SYM[t], v: at }));
         continue;
       }
       let dofs = op.dofs;
       if (!dofs || !dofs.length) {
         const tt = t || 'fixed';
-        if (!BC_TYPES[tt]) throw new Error(`알 수 없는 구속 종류: ${tt}`);
+        if (!BC_TYPES[tt]) throw new Error(tl('알 수 없는 구속 종류: {v}', { v: tt }));
         dofs = BC_TYPES[tt];
       }
       dofs = [...new Set(dofs.map(Number))].sort();
       const rot = dofs.filter((d) => d > 3);
       dofs = dofs.filter((d) => d >= 1 && d <= 3);
-      if (!dofs.length) throw new Error(rot.length ? '바-힌지 모델에는 회전 자유도가 없습니다 (병진 x, y, z 만 구속할 수 있습니다)' : '자유도는 1~3 이어야 합니다');
+      if (!dofs.length) throw new Error(rot.length ? tl('바-힌지 모델에는 회전 자유도가 없습니다 (병진 x, y, z 만 구속할 수 있습니다)') : tl('자유도는 1~3 이어야 합니다'));
       const sel = op.select || { all: true };
-      if (g && !resolve(g, sel).length) throw new Error(`구속 대상 절점이 0개입니다: ${describe(sel)}`);
+      if (g && !resolve(g, sel).length) throw new Error(tl('구속 대상 절점이 0개입니다: {v}', { v: describe(sel) }));
       const value = num(op.value ?? 0, 'value');
-      if (value !== 0 && dofs.length !== 1) throw new Error('강제 변위는 한 방향(x, y, z 중 하나)씩 지정하세요');
+      if (value !== 0 && dofs.length !== 1) throw new Error(tl('강제 변위는 한 방향(x, y, z 중 하나)씩 지정하세요'));
       const item = { id: nextId(spec.bcs, 'bc'), name: op.name || (value ? '강제 변위' : t === 'pinned' ? '핀' : '구속'), select: sel, dofs, value };
       spec.bcs.push(item);
-      log.push(`구속 추가 ${item.id}`);
+      log.push(tl('구속 추가 {v}', { v: item.id }));
     } else if (k === 'add_load') {
       const t = String(op.type || 'force').toLowerCase();
-      if (!['force', 'pressure', 'gravity'].includes(t)) throw new Error(t === 'moment' ? '바-힌지 모델에는 회전 자유도가 없어 모멘트 하중을 줄 수 없습니다' : `알 수 없는 하중 종류: ${t}`);
+      if (!['force', 'pressure', 'gravity'].includes(t)) throw new Error(t === 'moment' ? tl('바-힌지 모델에는 회전 자유도가 없어 모멘트 하중을 줄 수 없습니다') : tl('알 수 없는 하중 종류: {v}', { v: t }));
       const item = { id: nextId(spec.loads, 'ld'), type: t, name: op.name || t };
       if (t === 'force') {
         item.vector = vec(op.vector, 'vector');
@@ -124,34 +125,34 @@ export function applyOps(spec0, ops, geo) {
         if (op.direction) item.direction = vec(op.direction, 'direction');
         if (item.mode === 'global' && !item.direction) item.direction = [0, 0, -1];
         if (op.flip) item.flip = op.flip.map(Number);
-        if (g && !facesOf(g, resolve(g, item.select)).length) throw new Error('압력을 줄 면이 없습니다. 면의 모든 꼭짓점이 선택 영역에 들어가야 합니다');
+        if (g && !facesOf(g, resolve(g, item.select)).length) throw new Error(tl('압력을 줄 면이 없습니다. 면의 모든 꼭짓점이 선택 영역에 들어가야 합니다'));
       } else {
         item.vector = vec(op.vector || [0, 0, -G0], 'vector');
       }
-      if (g && item.select && !resolve(g, item.select).length) throw new Error(`하중 대상 절점이 0개입니다: ${describe(item.select)}`);
+      if (g && item.select && !resolve(g, item.select).length) throw new Error(tl('하중 대상 절점이 0개입니다: {v}', { v: describe(item.select) }));
       spec.loads.push(item);
-      log.push(`하중 추가 ${item.id}`);
+      log.push(tl('하중 추가 {v}', { v: item.id }));
     } else if (k === 'add_symmetry') {
       const axis = String(op.axis || 'x').toLowerCase();
-      if (!(axis in AXN)) throw new Error('대칭면 축은 x, y, z 중 하나여야 합니다');
+      if (!(axis in AXN)) throw new Error(tl('대칭면 축은 x, y, z 중 하나여야 합니다'));
       const at = op.at !== undefined && op.at !== null ? num(op.at, 'at') : planeCoord(g, op.select || { plane: { axis, at: 'min' } }, axis);
       spec.symmetry.push({ id: nextId(spec.symmetry, 'sy'), axis, at });
-      log.push(`대칭 추가 ${axis} = ${at}`);
+      log.push(tl('대칭 추가 {a} = {v}', { a: axis, v: at }));
     } else if (k === 'remove') {
       const keys = ['bcs', 'loads', 'plots', 'symmetry'];
       const n = keys.reduce((s, q) => s + spec[q].length, 0);
       for (const q of keys) spec[q] = spec[q].filter((x) => x.id !== op.id);
-      if (n === keys.reduce((s, q) => s + spec[q].length, 0)) throw new Error(`id '${op.id}' 를 찾을 수 없습니다`);
-      log.push(`삭제 ${op.id}`);
+      if (n === keys.reduce((s, q) => s + spec[q].length, 0)) throw new Error(tl("id '{v}' 를 찾을 수 없습니다", { v: op.id }));
+      log.push(tl('삭제 {v}', { v: op.id }));
     } else if (k === 'clear') {
       const what = op.what || 'all';
       for (const q of ['bcs', 'loads', 'plots', 'symmetry']) if (what === q || what === 'all') spec[q] = [];
       if (what === 'creases' || what === 'all') spec.creases = {};
-      log.push(`초기화 ${what}`);
+      log.push(tl('초기화 {v}', { v: what }));
     } else if (k === 'update') {
       let hit = null;
       for (const q of ['bcs', 'loads', 'plots', 'symmetry']) for (const x of spec[q]) if (x.id === op.id) hit = x;
-      if (!hit) throw new Error(`id '${op.id}' 를 찾을 수 없습니다`);
+      if (!hit) throw new Error(tl("id '{v}' 를 찾을 수 없습니다", { v: op.id }));
       for (const [f, v0] of Object.entries(op)) {
         if (f === 'op' || f === 'id') continue;
         let v = v0;
@@ -164,29 +165,29 @@ export function applyOps(spec0, ops, geo) {
         }
         hit[f] = v;
       }
-      log.push(`수정 ${op.id}`);
+      log.push(tl('수정 {v}', { v: op.id }));
     } else if (k === 'set_material') {
       const m = spec.materials.default;
       for (const f of ['E', 'nu', 'rho', 'yield', 'hardening']) if (f in op) m[f] = op[f] === null ? null : num(op[f], f);
       if (op.thickness !== undefined) spec.sections['*'].thickness = num(op.thickness, 'thickness');
-      log.push('재료');
+      log.push(tl('재료'));
     } else if (k === 'set_section') {
       if (op.thickness !== undefined) spec.sections['*'].thickness = num(op.thickness, 'thickness');
-      log.push('두께');
+      log.push(tl('두께'));
     } else if (k === 'set_crease') {
       const ty = String(op.type || 'auto');
-      if (!['fold', 'bend', 'cut', 'auto'].includes(ty)) throw new Error('주름 종류는 fold, bend, cut, auto 중 하나여야 합니다');
+      if (!['fold', 'bend', 'cut', 'auto'].includes(ty)) throw new Error(tl('주름 종류는 fold, bend, cut, auto 중 하나여야 합니다'));
       const known = g ? panelEdges(g) : null;
       const es = op.edges === 'all' ? [...known.entries()].filter(([, f]) => f.length === 2).map(([k]) => k) : op.edges || [];
-      if (!es.length) throw new Error('바꿀 엣지가 없습니다');
+      if (!es.length) throw new Error(tl('바꿀 엣지가 없습니다'));
       for (const e of es) {
         const key = typeof e === 'string' ? e : edgeKey(+e[0], +e[1]);
-        if (known && !known.has(key)) throw new Error(`모델에 없는 엣지입니다: ${key}`);
+        if (known && !known.has(key)) throw new Error(tl('모델에 없는 엣지입니다: {v}', { v: edgeLabel(key) }));
         if (known && known.get(key).length < 2) continue;
         if (ty === 'auto') delete spec.creases[key];
         else spec.creases[key] = ty;
       }
-      log.push(`주름 ${es.length}개 → ${ty}`);
+      log.push(tl('주름 {n}개 → {v}', { n: es.length, v: ty }));
     } else if (k === 'set_bh') {
       for (const [f, v] of Object.entries(op)) {
         if (f === 'op') continue;
@@ -196,46 +197,46 @@ export function applyOps(spec0, ops, geo) {
         else if (['model', 'calib', 'tri_bars', 'edge_bend', 'bar_cm', 'bend_cm', 'fold_cm'].includes(f)) spec.bh[f] = v;
         else spec.bh[f] = v === null ? null : num(v, f);
       }
-      if (spec.bh.model && !['N5B8', 'N4B5'].includes(spec.bh.model)) throw new Error('model 은 N5B8 또는 N4B5 입니다');
-      log.push('BH 설정');
+      if (spec.bh.model && !['N5B8', 'N4B5'].includes(spec.bh.model)) throw new Error(tl('model 은 N5B8 또는 N4B5 입니다'));
+      log.push(tl('BH 설정'));
     } else if (k === 'set_step') {
       const st = spec.step;
       if ('type' in op) {
-        if (!['static', 'arclength', 'modal', 'kinematic'].includes(op.type)) throw new Error('해석 종류는 static, arclength, modal, kinematic 중 하나입니다');
+        if (!['static', 'arclength', 'modal', 'kinematic'].includes(op.type)) throw new Error(tl('해석 종류는 static, arclength, modal, kinematic 중 하나입니다'));
         st.type = op.type;
       }
       for (const f of ['increments', 'modes']) if (f in op) st[f] = Math.max(1, Math.round(num(op[f], f)));
       for (const f of ['imperfection', 'lambda0', 'lam_max']) if (f in op) st[f] = op[f] === null ? null : num(op[f], f);
       if ('stop' in op) st.stop = op.stop;
-      log.push('해석 설정');
+      log.push(tl('해석 설정'));
     } else if (k === 'add_plot' && (op.type === 'space3' || op.type === '3d')) {
       const keys = (op.edges || []).map((e) => (typeof e === 'string' ? e : edgeKey(+e[0], +e[1])));
       const known = new Set(panelEdges(g).keys());
       const bad = keys.filter((q) => !known.has(q));
-      if (keys.length !== 3) throw new Error('해공간 그래프에는 주름 3개가 필요합니다');
-      if (bad.length) throw new Error(`없는 엣지: ${bad.map(edgeLabel).join(', ')}`);
-      const item = { id: nextId(spec.plots, 'pl'), type: 'space3', title: op.title || `해공간 ${keys.map(edgeLabel).join(' · ')}`, edges: keys };
+      if (keys.length !== 3) throw new Error(tl('해공간 그래프에는 주름 3개가 필요합니다'));
+      if (bad.length) throw new Error(tl('없는 엣지: {v}', { v: bad.map(edgeLabel).join(', ') }));
+      const item = { id: nextId(spec.plots, 'pl'), type: 'space3', title: op.title || tl('해공간 {v}', { v: keys.map(edgeLabel).join(' · ') }), edges: keys };
       spec.plots.push(item);
-      log.push(`그래프 추가 ${item.id}`);
+      log.push(tl('그래프 추가 {v}', { v: item.id }));
     } else if (k === 'add_plot') {
-      const item = { id: nextId(spec.plots, 'pl'), title: op.title || '그래프', x: op.x || { quantity: 'step' }, series: op.series || [] };
-      if (!item.series.length) throw new Error('그래프에 series 가 없습니다');
+      const item = { id: nextId(spec.plots, 'pl'), title: op.title || tl('그래프'), x: op.x || { quantity: 'step' }, series: op.series || [] };
+      if (!item.series.length) throw new Error(tl('그래프에 series 가 없습니다'));
       spec.plots.push(item);
-      log.push(`그래프 추가 ${item.id}`);
+      log.push(tl('그래프 추가 {v}', { v: item.id }));
     } else if (k === 'scale_geometry') {
       const s = num(op.factor, 'factor');
-      if (!(s > 0)) throw new Error('배율은 0보다 커야 합니다');
+      if (!(s > 0)) throw new Error(tl('배율은 0보다 커야 합니다'));
       newGeo = scaleGeo(g, s);
       for (const q of ['bcs', 'loads']) for (const it of spec[q]) if (it.select) it.select = scaleSel(it.select, s);
       for (const it of spec.bcs) if (it.value) it.value *= s;
       for (const it of spec.symmetry) it.at *= s;
       if (op.thickness) spec.sections['*'].thickness *= s;
-      log.push(`형상 ${s}배`);
+      log.push(tl('형상 {v}배', { v: s }));
     } else if (k === 'set_view') {
       spec.view = { ...(spec.view || {}), ...op };
       delete spec.view.op;
-      log.push('표시');
-    } else throw new Error(`알 수 없는 op: ${k}`);
+      log.push(tl('표시'));
+    } else throw new Error(tl('알 수 없는 op: {v}', { v: k }));
   }
   return { spec, log, geo: newGeo };
 }
@@ -285,7 +286,7 @@ export function preview(spec, geo) {
       if (l.type === 'force') {
         const ids = resolve(geo, l.select);
         const v = l.per_node ? l.vector : l.vector.map((x) => x / Math.max(ids.length, 1));
-        out.loads.push({ id: l.id, type: 'force', nodes: ids, vectors: ids.map(() => v), total: l.per_node ? l.vector.map((x) => x * ids.length) : l.vector, desc: describe(l.select) + (l.per_node ? ' · 절점마다' : '') });
+        out.loads.push({ id: l.id, type: 'force', nodes: ids, vectors: ids.map(() => v), total: l.per_node ? l.vector.map((x) => x * ids.length) : l.vector, desc: describe(l.select) + (l.per_node ? tl(' · 절점마다') : '') });
       } else if (l.type === 'pressure') {
         const fs = facesOf(geo, resolve(geo, l.select));
         const centers = [], dirs = [], areas = [];
@@ -299,19 +300,19 @@ export function preview(spec, geo) {
           areas.push(fg.A);
           for (let k = 0; k < 3; k++) total[k] += l.value * fg.A * d[k];
         }
-        out.loads.push({ id: l.id, type: 'pressure', mode: l.mode, faces: fs, centers, dirs, areas, nodes: [], vectors: [], total, desc: `${describe(l.select)} · 면 ${fs.length}개 · ${l.mode === 'local' ? '면 법선 (Local)' : '고정 방향 (Global)'}` });
+        out.loads.push({ id: l.id, type: 'pressure', mode: l.mode, faces: fs, centers, dirs, areas, nodes: [], vectors: [], total, desc: `${describe(l.select)} · ${tl('면 {n}개', { n: fs.length })} · ${l.mode === 'local' ? tl('면 법선 (Local)') : tl('고정 방향 (Global)')}` });
       } else {
         const rho = spec.materials.default.rho || 0;
         let A = 0;
         for (const f of geo.panels) A += faceGeom(geo.nodes, f).A;
-        out.loads.push({ id: l.id, type: 'gravity', nodes: [], vectors: [], total: l.vector.map((g) => (rho * t * A * g)), desc: `자중 ρ=${rho}` });
+        out.loads.push({ id: l.id, type: 'gravity', nodes: [], vectors: [], total: l.vector.map((g) => (rho * t * A * g)), desc: tl('자중 ρ={v}', { v: rho }) });
       }
     } catch (e) {
       out.loads.push({ id: l.id, type: l.type, nodes: [], vectors: [], desc: '?' });
       out.errors.push(`${l.id}: ${e.message}`);
     }
   }
-  for (const s of spec.symmetry) out.symmetry.push({ id: s.id, axis: s.axis, at: s.at, edges: symEdges(geo, s), desc: `${s.axis} = ${+s.at.toPrecision(6)} 평면` });
+  for (const s of spec.symmetry) out.symmetry.push({ id: s.id, axis: s.axis, at: s.at, edges: symEdges(geo, s), desc: tl('{a} = {v} 평면', { a: s.axis, v: +s.at.toPrecision(6) }) });
   return out;
 }
 
@@ -324,26 +325,26 @@ export function warnings(spec, geo) {
   for (const s of spec.symmetry) fixed.add(AXN[s.axis] + 1);
   const st = spec.step.type;
   if (st === 'kinematic') {
-    if (!(spec.bh.drivers || []).length) out.push('기구 해석: 구동 주름이 없어 자유도와 기구 모드만 계산합니다 (경로를 보려면 "2-7 주름을 120도까지 구동"처럼 지정)');
+    if (!(spec.bh.drivers || []).length) out.push(tl('기구 해석: 구동 주름이 없어 자유도와 기구 모드만 계산합니다 (경로를 보려면 "2-7 주름을 120도까지 구동"처럼 지정)'));
     return out;
   }
-  if (!spec.bcs.length && !spec.symmetry.length && st !== 'modal') out.push('구속이 없습니다 (강체 운동 가능)');
-  else if (st !== 'modal' && [1, 2, 3].some((d) => !fixed.has(d))) out.push('병진 자유도 중 구속되지 않은 방향이 있습니다: ' + [1, 2, 3].filter((d) => !fixed.has(d)).map((d) => 'xyz'[d - 1]).join(', '));
+  if (!spec.bcs.length && !spec.symmetry.length && st !== 'modal') out.push(tl('구속이 없습니다 (강체 운동 가능)'));
+  else if (st !== 'modal' && [1, 2, 3].some((d) => !fixed.has(d))) out.push(tl('병진 자유도 중 구속되지 않은 방향이 있습니다: ') + [1, 2, 3].filter((d) => !fixed.has(d)).map((d) => 'xyz'[d - 1]).join(', '));
   const moving = spec.bcs.some((b) => b.value);
-  if (!moving && !spec.loads.length && ['static', 'arclength'].includes(st)) out.push('하중이나 강제 변위가 없습니다');
-  if (spec.bh.plastic_hinge && !spec.materials.default.yield && spec.bh.fold_yield == null) out.push('소성 힌지를 켰지만 재료 항복 응력이 없어 힌지는 탄성으로 계산합니다');
-  if (st === 'modal' && !(spec.materials.default.rho > 0) && spec.bh.use_mass !== false) out.push('모달 해석에는 밀도가 필요합니다');
-  if (spec.bh.contact && !['static', 'arclength'].includes(st)) out.push('기하 접촉은 정적·호장법 해석에서만 적용됩니다');
-  for (const s of pv.symmetry) if (!s.edges.length) out.push(`${s.id}: ${s.axis} = ${s.at} 평면 위에 놓인 테두리 엣지가 없습니다`);
+  if (!moving && !spec.loads.length && ['static', 'arclength'].includes(st)) out.push(tl('하중이나 강제 변위가 없습니다'));
+  if (spec.bh.plastic_hinge && !spec.materials.default.yield && spec.bh.fold_yield == null) out.push(tl('소성 힌지를 켰지만 재료 항복 응력이 없어 힌지는 탄성으로 계산합니다'));
+  if (st === 'modal' && !(spec.materials.default.rho > 0) && spec.bh.use_mass !== false) out.push(tl('모달 해석에는 밀도가 필요합니다'));
+  if (spec.bh.contact && !['static', 'arclength'].includes(st)) out.push(tl('기하 접촉은 정적·호장법 해석에서만 적용됩니다'));
+  for (const s of pv.symmetry) if (!s.edges.length) out.push(`${s.id}: ` + tl('{a} = {v} 평면 위에 놓인 테두리 엣지가 없습니다', { a: s.axis, v: s.at }));
   if (spec.symmetry.length) {
     for (const p of pv.bcs) for (const s of spec.symmetry) {
       const a = AXN[s.axis];
-      if (p.value && p.dofs[0] !== a + 1 && p.nodes.some((i) => Math.abs(geo.nodes[i][a] - s.at) < 1e-9 * diagOf(geo.nodes))) out.push(`${p.id}: 대칭면 위 절점의 강제 변위는 대칭 모델에서 그대로 쓰입니다 (값 확인)`);
+      if (p.value && p.dofs[0] !== a + 1 && p.nodes.some((i) => Math.abs(geo.nodes[i][a] - s.at) < 1e-9 * diagOf(geo.nodes))) out.push(`${p.id}: ` + tl('대칭면 위 절점의 강제 변위는 대칭 모델에서 그대로 쓰입니다 (값 확인)'));
     }
     for (const l of pv.loads) for (const s of spec.symmetry) {
       const a = AXN[s.axis];
       const on = l.nodes.filter((i) => Math.abs(geo.nodes[i][a] - s.at) < 1e-9 * diagOf(geo.nodes));
-      if (on.length) out.push(`${l.id}: 대칭면 위 절점 ${on.length}개에 하중이 있습니다. 대칭 모델에서는 전체 하중의 절반을 넣어야 합니다`);
+      if (on.length) out.push(`${l.id}: ` + tl('대칭면 위 절점 {n}개에 하중이 있습니다. 대칭 모델에서는 전체 하중의 절반을 넣어야 합니다', { n: on.length }));
     }
   }
   return [...new Set(out)];
@@ -572,7 +573,7 @@ function forceSeries(res) {
   const n = r.lam.length;
   if (res.mode === 'force') {
     const Fm = Math.hypot(...[0, 1, 2].map((k) => r.F.reduce((s, v, i) => s + (i % 3 === k ? v : 0), 0)));
-    return { name: Fm > 0 ? '작용 하중 합 λ·|ΣF| (N)' : '하중 계수 λ', y: r.lam.map((l) => l * (Fm || 1)), lam: r.lam };
+    return { name: Fm > 0 ? tl('작용 하중 합 λ·|ΣF| (N)') : tl('하중 계수 λ'), y: r.lam.map((l) => l * (Fm || 1)), lam: r.lam };
   }
   const imp = [];
   r.Ubar.forEach((v, i) => v !== 0 && imp.push(i));
@@ -582,7 +583,7 @@ function forceSeries(res) {
     for (const i of imp) s += raw[k * stride + nd + i] * Math.sign(r.Ubar[i]);
     y.push(s);
   }
-  return { name: '하중점 반력 (강제 변위 방향, N)', y };
+  return { name: tl('하중점 반력 (강제 변위 방향, N)'), y };
 }
 
 function quantity(res, q, sel) {
@@ -594,27 +595,27 @@ function quantity(res, q, sel) {
   if (q === 'angle') {
     const key = sel && sel.edge;
     const j = key ? hingeIndex(res, key) : -1;
-    if (j < 0) throw new Error(`angle: 힌지를 찾지 못했습니다 (${key ? edgeLabel(key) : '엣지 없음'})`);
-    return { name: `${edgeLabel(key)} 이면각 (도)`, y: hingeAngleSeries(res, j) };
+    if (j < 0) throw new Error(tl('angle: 힌지를 찾지 못했습니다 ({v})', { v: key ? edgeLabel(key) : tl('엣지 없음') }));
+    return { name: tl('{e} 이면각 (도)', { e: edgeLabel(key) }), y: hingeAngleSeries(res, j) };
   }
-  if (q === 'step' && res.kind !== 'static') return { name: '스텝', y: [...Array(res.count).keys()] };
-  if (res.kind !== 'static') throw new Error(`${q}: 이 해석 종류에서는 쓸 수 없는 양입니다`);
+  if (q === 'step' && res.kind !== 'static') return { name: tl('스텝'), y: [...Array(res.count).keys()] };
+  if (res.kind !== 'static') throw new Error(`${q}: ` + tl('이 해석 종류에서는 쓸 수 없는 양입니다'));
   switch (q) {
-    case 'step': return { name: '스텝', y: [...Array(n).keys()] };
-    case 'lam': return { name: '하중 계수 λ', y: r.lam };
-    case 'energy.total': return { name: '총 저장 에너지', y: tot() };
-    case 'energy.bar': return { name: '바 에너지 US', y: E('US') };
-    case 'energy.fold': return { name: '접힘 에너지 UF', y: E('UF') };
-    case 'energy.bend': return { name: '휨 에너지 UB', y: r.UB.map((v, i) => v + r.UE[i]) };
-    case 'energy.plastic': return { name: '소성 소산', y: E('Wp') };
-    case 'energy.contact': return { name: '접촉 장벽 에너지', y: E('Uc') };
-    case 'energy.external': return { name: '외부 일', y: E('Wext') };
+    case 'step': return { name: tl('스텝'), y: [...Array(n).keys()] };
+    case 'lam': return { name: tl('하중 계수 λ'), y: r.lam };
+    case 'energy.total': return { name: tl('총 저장 에너지'), y: tot() };
+    case 'energy.bar': return { name: tl('바 에너지 US'), y: E('US') };
+    case 'energy.fold': return { name: tl('접힘 에너지 UF'), y: E('UF') };
+    case 'energy.bend': return { name: tl('휨 에너지 UB'), y: r.UB.map((v, i) => v + r.UE[i]) };
+    case 'energy.plastic': return { name: tl('소성 소산'), y: E('Wp') };
+    case 'energy.contact': return { name: tl('접촉 장벽 에너지'), y: E('Uc') };
+    case 'energy.external': return { name: tl('외부 일'), y: E('Wext') };
     case 'force': return forceSeries(res);
   }
   const m = q.match(/^(u|force|reaction)\.?([xyz])?$/);
   if (m) {
     const ids = sel ? resolve(S.geo, sel) : [];
-    if (!ids.length) throw new Error(`${q}: 대상 절점이 없습니다`);
+    if (!ids.length) throw new Error(`${q}: ` + tl('대상 절점이 없습니다'));
     const comp = m[2] ? ['xyz'.indexOf(m[2])] : [0, 1, 2];
     const off = m[1] === 'u' ? 0 : nd;
     const y = [];
@@ -636,10 +637,10 @@ function quantity(res, q, sel) {
       y.push(s);
     }
     const who = describe(sel);
-    const nm = m[1] === 'u' ? `변위 ${m[2] ? 'u' + m[2] : '|u|'} (${who}, mm)` : `절점 힘 ${m[2] ? 'F' + m[2] : '|F|'} (${who}, N)`;
+    const nm = m[1] === 'u' ? tl('변위 {c} ({w}, mm)', { c: m[2] ? 'u' + m[2] : '|u|', w: who }) : tl('절점 힘 {c} ({w}, N)', { c: m[2] ? 'F' + m[2] : '|F|', w: who });
     return { name: nm, y };
   }
-  throw new Error(`알 수 없는 양: ${q}`);
+  throw new Error(tl('알 수 없는 양: {v}', { v: q }));
 }
 
 export function edgeLabel(k) {
@@ -700,7 +701,7 @@ async function ensureSpaces(res) {
 function space3(res, p) {
   const sp = (res.spaces || {})[p.edges.join(',')];
   const labels = p.edges.map(edgeLabel);
-  if (!sp) return { id: p.id, title: p.title, type: '3d', error: '해공간을 계산하지 못했습니다', series: [] };
+  if (!sp) return { id: p.id, title: p.title, type: '3d', error: tl('해공간을 계산하지 못했습니다'), series: [] };
   const deg = (v) => (v * 180) / Math.PI;
   const paths = sp.paths.map((path) => path.map((q) => q.map(deg)));
   const idx = p.edges.map((k) => hingeIndex(res, k));
@@ -710,8 +711,8 @@ function space3(res, p) {
     if (ser[0].length > 1) main = ser[0].map((_, k) => ser.map((q) => q[k]));
   }
   const notes = [];
-  if (sp.missing.length) notes.push(`힌지가 아닌 엣지: ${sp.missing.map((e) => edgeLabel(edgeKey(e[0], e[1]))).join(', ')}`);
-  return { id: p.id, title: p.title, type: '3d', edges: labels, dof: sp.dof, paths, main, mainName: res.kind === 'kinematic' ? '기구 해석 경로' : '해석 경로', notes, series: [] };
+  if (sp.missing.length) notes.push(tl('힌지가 아닌 엣지: {v}', { v: sp.missing.map((e) => edgeLabel(edgeKey(e[0], e[1]))).join(', ') }));
+  return { id: p.id, title: p.title, type: '3d', edges: labels, dof: sp.dof, paths, main, mainName: res.kind === 'kinematic' ? tl('기구 해석 경로') : tl('해석 경로'), notes, series: [] };
 }
 
 function customPlots(res, out) {
@@ -745,25 +746,79 @@ async function plotList() {
   if (res.kind === 'static') {
     const { step } = staticSeries(res);
     const ser = ['energy.total', 'energy.bar', 'energy.fold', 'energy.bend'].map((q) => quantity(res, q));
-    if (res.result.UE.some((v) => v !== 0)) ser[3].name = '휨 에너지 UB (패널 + 휨 엣지)';
+    if (res.result.UE.some((v) => v !== 0)) ser[3].name = tl('휨 에너지 UB (패널 + 휨 엣지)');
     if (res.result.Wp.some((v) => v !== 0)) ser.push(quantity(res, 'energy.plastic'));
     if (res.result.Uc.some((v) => v !== 0)) ser.push(quantity(res, 'energy.contact'));
-    out.push({ id: 'auto_e', auto: true, title: '스텝-에너지', xlabel: '스텝', series: ser.map((s) => ({ name: s.name, x: step, y: s.y })) });
+    out.push({ id: 'auto_e', auto: true, title: tl('스텝-에너지'), xlabel: tl('스텝'), series: ser.map((s) => ({ name: s.name, x: step, y: s.y })) });
     const f = forceSeries(res);
-    out.push({ id: 'auto_f', auto: true, title: '스텝-힘', xlabel: '스텝', series: [{ name: f.name, x: step, y: f.y }] });
+    out.push({ id: 'auto_f', auto: true, title: tl('스텝-힘'), xlabel: tl('스텝'), series: [{ name: f.name, x: step, y: f.y }] });
     customPlots(res, out);
   } else if (res.kind === 'modal') {
     const fr = res.result.freq;
-    out.push({ id: 'auto_m', auto: true, title: res.result.useMass ? '고유진동수 (Hz)' : '강성 고유값', xlabel: '모드', series: [{ name: res.result.useMass ? '진동수 (Hz)' : '고유값', x: fr.map((_, i) => i + 1), y: res.result.useMass ? fr : res.result.eig }] });
+    out.push({ id: 'auto_m', auto: true, title: res.result.useMass ? tl('고유진동수 (Hz)') : tl('강성 고유값'), xlabel: tl('모드'), series: [{ name: res.result.useMass ? tl('진동수 (Hz)') : tl('고유값'), x: fr.map((_, i) => i + 1), y: res.result.useMass ? fr : res.result.eig }] });
   } else if (res.kind === 'kinematic') {
     const A = res.result.angles;
     const drv = (S.spec.bh.drivers || []);
     const idx = drv.map((k) => res.model.hinges.findIndex((h) => edgeKey(h.edge[0], h.edge[1]) === k));
-    if (A && A.length > 1 && idx.length && !res.result.mechModes) out.push({ id: 'auto_k', auto: true, title: '구동 주름 이면각 (도)', xlabel: '스텝', series: idx.map((j, q) => ({ name: edgeLabel(drv[q]), x: A.map((_, i) => i), y: A.map((a) => (a[j] * 180) / Math.PI) })) });
+    if (A && A.length > 1 && idx.length && !res.result.mechModes) out.push({ id: 'auto_k', auto: true, title: tl('구동 주름 이면각 (도)'), xlabel: tl('스텝'), series: idx.map((j, q) => ({ name: edgeLabel(drv[q]), x: A.map((_, i) => i), y: A.map((a) => (a[j] * 180) / Math.PI) })) });
     customPlots(res, out);
   }
   if (res.kind === 'modal') customPlots(res, out);
   return out;
+}
+
+function buildMeta(res) {
+  const { kind, mode, result, raw: frames, stride, nn, count } = res;
+  const labels = [];
+  for (let i = 0; i < count; i++) {
+    if (kind === 'static') {
+      const legs = S.spec.bh.cycles > 0 ? Math.round(Math.max(...result.s)) : 1;
+      const sv = result.s[i];
+      labels.push(mode === 'force' ? tl('스텝 {i} · λ={v}', { i, v: (+result.lam[i]).toPrecision(4) }) : legs > 1 ? tl('스텝 {i} · 구간 {a}/{b}', { i, a: Math.min(legs, Math.floor(sv) + (sv % 1 > 0 ? 1 : 0)) || 1, b: legs }) : tl('스텝 {i} · 진행 {v}%', { i, v: (100 * sv).toFixed(1) }));
+    } else if (kind === 'modal') labels.push(tl('모드 {i}', { i: i + 1 }) + (result.useMass ? ` · ${(+result.freq[i]).toPrecision(4)} Hz` : ` · λ=${(+result.eig[i]).toPrecision(4)}`));
+    else if (result.mechModes) labels.push(tl('기구 모드 {i}', { i: i + 1 }));
+    else labels.push(tl('경로 {i}', { i }));
+  }
+  const fields = kind === 'static' ? ['barForce', 'barStress', 'energyDensity', 'foldDensity', 'bendDensity', 'stretchDensity', 'U', 'ux', 'uy', 'uz'] : ['U', 'ux', 'uy', 'uz'];
+  const summary = {};
+  const notes = [];
+  if (kind === 'static') {
+    const L = count - 1;
+    let umax = 0;
+    for (let f = 0; f < count; f++) for (let k = 0; k < nn; k++) umax = Math.max(umax, Math.hypot(frames[f * stride + 3 * k], frames[f * stride + 3 * k + 1], frames[f * stride + 3 * k + 2]));
+    summary[tl('풀이')] = mode === 'force' ? tl('호장법 (MGDCM)') : tl('강제 변위 (감쇠 뉴턴)');
+    summary[tl('증분')] = L;
+    summary[tl('최대 변위 (전 스텝, mm)')] = umax;
+    if (mode === 'force') summary[tl('최종 하중 계수 λ')] = result.lam[L];
+    const f = forceSeries(res);
+    summary[mode === 'force' ? tl('최종 하중 (N)') : tl('최종 반력 (N)')] = f.y[L];
+    summary[tl('최대 반력/하중 (N)')] = Math.max(...f.y.map(Math.abs));
+    summary[tl('바 / 접힘 / 휨 에너지 (N·mm)')] = [result.US[L], result.UF[L], result.UB[L] + result.UE[L]];
+    if (result.Wp[L]) summary[tl('소성 소산 (N·mm)')] = result.Wp[L];
+    res.values = { umax, fmax: Math.max(...f.y.map(Math.abs)), ffinal: f.y[L], energies: [result.US[L], result.UF[L], result.UB[L] + result.UE[L]], lam: mode === 'force' ? result.lam[L] : undefined };
+    const retries = (result.notes || []).filter((q) => q === 'retry' || q === 'reduce_radius').length;
+    const st = { completed: '완료', load_reached: '목표 하중 도달', max_increments: '최대 증분 도달', stop_criterion: '정지 조건', no_convergence: '수렴 실패로 중단', radius_underflow: '호장 반경이 너무 작아 중단', contact_blocked: '강제 변위 절점이 접촉에 막혀 중단' }[result.status];
+    notes.push(tl('상태: {v}', { v: st ? tl(st) : result.status }));
+    if (retries) notes.push(tl('증분 재시도 {n}회 (MERLIN2 방식 보폭 조절)', { n: retries }));
+  } else if (kind === 'modal') {
+    summary[tl('모드 수')] = count;
+    summary[tl('강체 모드')] = result.rigid;
+    notes.push(result.useMass ? tl('질량 포함 고유진동수 (집중 질량: 패널 질량을 꼭짓점과 중심점에 균등 분배)') : tl('K 만의 고유값'));
+    if (S.spec.symmetry.length) notes.push(tl('대칭 조건이 있어 대칭 모드만 나옵니다'));
+  } else {
+    notes.push(tl('강체 패널 가정 (패널 휨 힌지를 구속으로 둠)'));
+    if (result.mechModes) notes.push(tl('구동 주름이 없어 기구 모드(구속 야코비안의 영공간) {n}개를 보여 줍니다', { n: result.mechModes }));
+    if (result.error) notes.push({ driver_not_found: tl('구동 주름을 찾지 못했습니다'), path_incompatible: tl('구동 목표까지 강체 접힘 경로가 이어지지 않아 중간에 멈췄습니다') }[result.error] || result.error);
+  }
+  if (result.dof) {
+    const d = result.dof;
+    summary[tl('기구 자유도 (강체 패널)')] = d.mechanisms;
+    summary[tl('자기 응력 상태')] = d.selfStress;
+    summary[tl('구속식 / 자유 자유도 / 계수')] = [d.constraints, d.freeDofs, d.rank];
+  }
+  if (kind === 'modal' && result.dof && result.dof.rigidRemoved === 0 && !result.useMass) notes.push(tl('K 의 0 고유값 수 = 강체 모드 + 기구 모드 (패널 휨·접힘 강성이 있으면 기구 모드는 작은 양수 고유값)'));
+  summary.notes = notes;
+  res.meta = { kind, solver: 'bh', frames: labels, fields, summary, mode, nInput: S.geo.nodes.length, mechModes: result.mechModes || 0 };
 }
 
 function buildResult(kind, mode, model, result, frames, elapsed) {
@@ -773,53 +828,7 @@ function buildResult(kind, mode, model, result, frames, elapsed) {
   const count = Math.floor(frames.length / stride);
   const res = { kind, mode, model, result, raw: frames, stride, nd, nn, count, elapsed };
   res.nodeArea = nodeAreas(model);
-  const labels = [];
-  for (let i = 0; i < count; i++) {
-    if (kind === 'static') {
-      const legs = S.spec.bh.cycles > 0 ? Math.round(Math.max(...result.s)) : 1;
-      const sv = result.s[i];
-      labels.push(mode === 'force' ? `스텝 ${i} · λ=${(+result.lam[i]).toPrecision(4)}` : legs > 1 ? `스텝 ${i} · 구간 ${Math.min(legs, Math.floor(sv) + (sv % 1 > 0 ? 1 : 0)) || 1}/${legs}` : `스텝 ${i} · 진행 ${(100 * sv).toFixed(1)}%`);
-    }
-    else if (kind === 'modal') labels.push(`모드 ${i + 1}${result.useMass ? ` · ${(+result.freq[i]).toPrecision(4)} Hz` : ` · λ=${(+result.eig[i]).toPrecision(4)}`}`);
-    else if (result.mechModes) labels.push(`기구 모드 ${i + 1}`);
-    else labels.push(`경로 ${i}`);
-  }
-  const fields = kind === 'static' ? ['barForce', 'barStress', 'energyDensity', 'foldDensity', 'bendDensity', 'stretchDensity', 'U', 'ux', 'uy', 'uz'] : ['U', 'ux', 'uy', 'uz'];
-  const summary = {};
-  if (kind === 'static') {
-    const L = count - 1;
-    let umax = 0;
-    for (let f = 0; f < count; f++) for (let k = 0; k < nn; k++) umax = Math.max(umax, Math.hypot(frames[f * stride + 3 * k], frames[f * stride + 3 * k + 1], frames[f * stride + 3 * k + 2]));
-    summary['풀이'] = mode === 'force' ? '호장법 (MGDCM)' : '강제 변위 (감쇠 뉴턴)';
-    summary['증분'] = L;
-    summary['최대 변위 (전 스텝, mm)'] = umax;
-    if (mode === 'force') summary['최종 하중 계수 λ'] = result.lam[L];
-    const f = forceSeries(res);
-    summary[mode === 'force' ? '최종 하중 (N)' : '최종 반력 (N)'] = f.y[L];
-    summary['최대 반력/하중 (N)'] = Math.max(...f.y.map(Math.abs));
-    summary['바 / 접힘 / 휨 에너지 (N·mm)'] = [result.US[L], result.UF[L], result.UB[L] + result.UE[L]];
-    if (result.Wp[L]) summary['소성 소산 (N·mm)'] = result.Wp[L];
-    const retries = (result.notes || []).filter((q) => q === 'retry' || q === 'reduce_radius').length;
-    const st = { completed: '완료', load_reached: '목표 하중 도달', max_increments: '최대 증분 도달', stop_criterion: '정지 조건', no_convergence: '수렴 실패로 중단', radius_underflow: '호장 반경이 너무 작아 중단', contact_blocked: '강제 변위 절점이 접촉에 막혀 중단' }[result.status] || result.status;
-    summary['참고'] = [`상태: ${st}`, ...(retries ? [`증분 재시도 ${retries}회 (MERLIN2 방식 보폭 조절)`] : [])];
-  } else if (kind === 'modal') {
-    summary['모드 수'] = count;
-    summary['강체 모드'] = result.rigid;
-    summary['참고'] = [result.useMass ? '질량 포함 고유진동수 (집중 질량: 패널 질량을 꼭짓점과 중심점에 균등 분배)' : 'K 만의 고유값'];
-    if (S.spec.symmetry.length) summary['참고'].push('대칭 조건이 있어 대칭 모드만 나옵니다');
-  } else {
-    summary['참고'] = ['강체 패널 가정 (패널 휨 힌지를 구속으로 둠)'];
-    if (result.mechModes) summary['참고'].push(`구동 주름이 없어 기구 모드(구속 야코비안의 영공간) ${result.mechModes}개를 보여 줍니다`);
-    if (result.error) summary['참고'].push({ driver_not_found: '구동 주름을 찾지 못했습니다', path_incompatible: '구동 목표까지 강체 접힘 경로가 이어지지 않아 중간에 멈췄습니다' }[result.error] || result.error);
-  }
-  if (result.dof) {
-    const d = result.dof;
-    summary['기구 자유도 (강체 패널)'] = d.mechanisms;
-    summary['자기 응력 상태'] = d.selfStress;
-    summary['구속식 / 자유 자유도 / 계수'] = [d.constraints, d.freeDofs, d.rank];
-  }
-  if (kind === 'modal' && result.dof && result.dof.rigidRemoved === 0 && !result.useMass) summary['참고'].push('K 의 0 고유값 수 = 강체 모드 + 기구 모드 (패널 휨·접힘 강성이 있으면 기구 모드는 작은 양수 고유값)');
-  res.meta = { kind, solver: 'bh', frames: labels, fields, summary, mode, nInput: S.geo.nodes.length, mechModes: result.mechModes || 0 };
+  buildMeta(res);
   return res;
 }
 
@@ -828,11 +837,11 @@ function runWorker(kind, input) {
     if (S.worker) S.worker.terminate();
     const w = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
     S.worker = w;
-    S.progress = { running: true, t0: performance.now(), stage: '모델 준비 중' };
+    S.progress = { running: true, t0: performance.now(), stage: tl('모델 준비 중') };
     w.onmessage = (e) => {
       const d = e.data;
       if (d.type === 'progress') S.progress = { ...S.progress, ...d.status, elapsed: d.elapsed };
-      else if (d.type === 'model') S.progress.stage = `해석 중 · 절점 ${d.model.nodes.length} · 바 ${d.model.bars.length} · 힌지 ${d.model.hinges.length}`;
+      else if (d.type === 'model') S.progress.stage = tl('해석 중 · 절점 {n} · 바 {b} · 힌지 {h}', { n: d.model.nodes.length, b: d.model.bars.length, h: d.model.hinges.length });
       else if (d.type === 'done') {
         S.progress = { running: false };
         w.terminate();
@@ -847,14 +856,14 @@ function runWorker(kind, input) {
     };
     w.onerror = (e) => {
       S.progress = { running: false };
-      reject(new Error(e.message || '계산 작업 오류'));
+      reject(new Error(e.message || tl('계산 작업 오류')));
     };
     w.postMessage({ kind, input, chunk: 2 });
   });
 }
 
 function need() {
-  if (!S.geo) throw new Error('먼저 지오메트리를 불러오세요');
+  if (!S.geo) throw new Error(tl('먼저 지오메트리를 불러오세요'));
 }
 
 export async function api(path, opts = {}) {
@@ -864,12 +873,13 @@ export async function api(path, opts = {}) {
   if (p === '/api/state') return state();
   if (p === '/api/examples') {
     const ex = await examples();
-    return Object.entries(ex).map(([name, v]) => ({ name, title: v.title, note: v.note, prompts: v.prompts || [], file: v.file }));
+    const en = getLang() !== 'ko';
+    return Object.entries(ex).map(([name, v]) => ({ name, title: (en && v.title_en) || v.title, note: (en && v.note_en) || v.note, prompts: (en && v.prompts_en) || v.prompts || [], file: v.file }));
   }
   if (p.startsWith('/api/examples/')) {
     const name = p.split('/').pop();
     const ex = (await examples())[name];
-    if (!ex) throw new Error('예제가 없습니다');
+    if (!ex) throw new Error(tl('예제가 없습니다'));
     const text = await (await fetch('examples/' + ex.file)).text();
     setModel(parseOBJ(text, ex.file));
     const ops = +q.get('preset') ? ex.ops : ex.ops.filter((o) => o.op.startsWith('set_'));
@@ -882,7 +892,7 @@ export async function api(path, opts = {}) {
   }
   if (p === '/api/upload') {
     const { name, text } = opts.file;
-    if (!/\.obj$/i.test(name)) throw new Error('바-힌지 모델은 OBJ (삼각형·사각형 패널) 를 받습니다');
+    if (!/\.obj$/i.test(name)) throw new Error(tl('바-힌지 모델은 OBJ (삼각형·사각형 패널) 를 받습니다'));
     setModel(parseOBJ(text, name));
     return state();
   }
@@ -893,7 +903,7 @@ export async function api(path, opts = {}) {
   }
   if (p === '/api/undo') {
     need();
-    if (!S.undo.length) throw new Error('되돌릴 내용이 없습니다');
+    if (!S.undo.length) throw new Error(tl('되돌릴 내용이 없습니다'));
     const u = S.undo.pop();
     if (u.geo !== S.geo) S.result = null;
     S.spec = u.spec;
@@ -939,7 +949,7 @@ export async function api(path, opts = {}) {
       S.worker.terminate();
       S.worker = null;
       S.progress = { running: false };
-      throw new Error('해석을 중단했습니다');
+      throw new Error(tl('해석을 중단했습니다'));
     }
     return {};
   }
@@ -988,6 +998,10 @@ export async function api(path, opts = {}) {
     return { U, values: Array.from(vals), edge: edge ? Array.from(edge) : null, min: lo, max: hi, label: res.meta.frames[i], time: res.kind === 'static' ? res.result.s[i] : 0 };
   }
   if (p === '/api/plots') return await plotList();
+  if (p === '/api/relabel') {
+    if (S.result) buildMeta(S.result);
+    return true;
+  }
   if (p === '/api/llm') {
     if (body) S.llm = llm.saveConfig({ ...S.llm, ...body });
     return { llm: llm.publicConfig(S.llm), status: await llm.status(S.llm) };
@@ -998,7 +1012,7 @@ export async function api(path, opts = {}) {
     setModel(body.geometry, body.spec);
     return state();
   }
-  throw new Error(`알 수 없는 요청: ${p}`);
+  throw new Error(tl('알 수 없는 요청: {v}', { v: p }));
 }
 
 function creases() {
@@ -1027,13 +1041,13 @@ function creases() {
   const auto = new Map();
   if (marked.size) {
     for (const [k, d] of ang) auto.set(k, marked.has(k) || d >= tol ? 'fold' : 'bend');
-    note = 'OBJ 의 l(선)로 표시한 엣지와 꺾인 엣지는 접힘, 나머지는 휨으로 판정';
+    note = tl('OBJ 의 l(선)로 표시한 엣지와 꺾인 엣지는 접힘, 나머지는 휨으로 판정');
   } else if (ang.size && amax < tol) {
     for (const k of ang.keys()) auto.set(k, 'fold');
-    note = '평평한 전개도라 내부 엣지를 모두 접힘으로 판정 (휨으로 바꿀 엣지는 직접 골라 주세요)';
+    note = tl('평평한 전개도라 내부 엣지를 모두 접힘으로 판정 (휨으로 바꿀 엣지는 직접 골라 주세요)');
   } else {
     for (const [k, d] of ang) auto.set(k, d >= tol ? 'fold' : 'bend');
-    note = `꺾임 ${tol}도 이상은 접힘, 미만은 휨으로 판정`;
+    note = tl('꺾임 {v}도 이상은 접힘, 미만은 휨으로 판정', { v: tol });
   }
   const edges = [];
   for (const [k, fl] of pe) {
@@ -1047,7 +1061,7 @@ function creases() {
 async function chat(text, sel) {
   need();
   text = (text || '').trim();
-  if (!text) throw new Error('내용이 비어 있습니다');
+  if (!text) throw new Error(tl('내용이 비어 있습니다'));
   const cfg = S.llm;
   const picked = sel && ((sel.points && sel.points.length) || (sel.segments && sel.segments.length)) ? sel : null;
   const ctx = { result: S.result, creaseSel: sel && sel.creases };
@@ -1058,13 +1072,13 @@ async function chat(text, sel) {
       applyOps(S.spec, rr.ops, S.geo);
     } catch (e) {
       ruleOk = false;
-      rr.reply += ` (적용 검사 실패: ${e.message})`;
+      rr.reply += tl(' (적용 검사 실패: {v})', { v: e.message });
     }
   }
   const direct = ruleOk || (rr.info.ask && !rr.info.unknown) || rr.info.answered;
   const mode = cfg.mode;
   const useLlm = (mode === 'auto' || mode === 'llm' || (mode === 'rule_first' && !direct)) && llm.configured(cfg);
-  if (mode === 'llm' && !llm.configured(cfg)) throw new Error('LLM 이 설정되지 않았습니다. LLM 칸에 엔드포인트와 모델 이름을 넣어 주세요');
+  if (mode === 'llm' && !llm.configured(cfg)) throw new Error(tl('LLM 이 설정되지 않았습니다. LLM 칸에 엔드포인트와 모델 이름을 넣어 주세요'));
   let ops = rr.ops, reply = rr.reply, engine = 'rule', note = '';
   if (useLlm) {
     try {
@@ -1081,19 +1095,19 @@ async function chat(text, sel) {
       }
       engine = 'llm';
     } catch (e) {
-      if (e.name === 'AbortError') throw new Error('LLM 요청을 중단했습니다');
-      if (mode === 'llm') throw new Error(`LLM 호출 실패: ${e.message}`);
-      note = `LLM에 연결하지 못해 규칙 기반 해석 결과를 사용했습니다 (${String(e.message).slice(0, 120)})`;
+      if (e.name === 'AbortError') throw new Error(tl('LLM 요청을 중단했습니다'));
+      if (mode === 'llm') throw new Error(tl('LLM 호출 실패: {v}', { v: e.message }));
+      note = tl('LLM에 연결하지 못해 규칙 기반 해석 결과를 사용했습니다 ({v})', { v: String(e.message).slice(0, 120) });
     }
-  } else if (mode === 'rule_first') note = ruleOk ? '규칙으로 바로 처리했습니다' : '';
+  } else if (mode === 'rule_first') note = ruleOk ? tl('규칙으로 바로 처리했습니다') : '';
   let error = null, log = [], action = null;
   if (engine === 'rule' && rr.info.undo) {
     if (S.undo.length) {
       const u = S.undo.pop();
       S.spec = u.spec;
       S.geo = u.geo;
-      reply = '직전 상태로 되돌렸습니다.';
-    } else reply = '되돌릴 내용이 없습니다.';
+      reply = tl('직전 상태로 되돌렸습니다.');
+    } else reply = tl('되돌릴 내용이 없습니다.');
     ops = [];
   } else if (ops.length) {
     try {

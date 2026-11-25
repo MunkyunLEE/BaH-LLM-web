@@ -1,0 +1,2426 @@
+[
+ {
+  "text": "8번 절점 고정",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "nodes": [
+       7
+      ]
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "2번 절점 y, z 구속",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "nodes": [
+       1
+      ]
+     },
+     "dofs": [
+      2,
+      3
+     ],
+     "name": "구속 uy,uz"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "59번 절점을 y 방향으로 -30 mm",
+  "expect": {
+   "ops": [],
+   "ok": false,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "바닥 고정",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "plane": {
+       "axis": "z",
+       "at": "min"
+      }
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "x 최소 변을 z 방향만 구속",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "plane": {
+       "axis": "x",
+       "at": "min"
+      }
+     },
+     "dofs": [
+      3
+     ],
+     "name": "구속 uz"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "49번 절점에 아래로 1 N",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "force",
+     "vector": [
+      0,
+      0,
+      -1
+     ],
+     "select": {
+      "nodes": [
+       48
+      ]
+     }
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "상단 절점마다 z -0.5 N",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "force",
+     "vector": [
+      0,
+      0,
+      -0.5
+     ],
+     "select": {
+      "plane": {
+       "axis": "z",
+       "at": "max"
+      }
+     },
+     "per_node": true
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "윗면에 압력 0.001 MPa 아래로",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "pressure",
+     "value": 0.001,
+     "select": {
+      "plane": {
+       "axis": "z",
+       "at": "max"
+      }
+     },
+     "mode": "global",
+     "direction": [
+      0,
+      0,
+      -1
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "전체 면에 수직으로 압력 1 kPa",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "pressure",
+     "value": 0.001,
+     "select": {
+      "all": true
+     },
+     "mode": "local"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "자중",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "gravity",
+     "vector": [
+      0,
+      0,
+      -9806.65
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "x = 0 대칭",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_symmetry",
+     "axis": "x",
+     "at": 0
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "x 최대 면 대칭",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_symmetry",
+     "axis": "x",
+     "select": {
+      "plane": {
+       "axis": "x",
+       "at": "max"
+      }
+     }
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "E 1000, 포아송 0.3, 두께 0.25",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_material",
+     "E": 1000
+    },
+    {
+     "op": "set_material",
+     "nu": 0.3
+    },
+    {
+     "op": "set_material",
+     "thickness": 0.25
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "종이로",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_material",
+     "E": 3000,
+     "nu": 0.3,
+     "rho": 8e-10
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "N4B5 로",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "model": "N4B5"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "L* 30 mm",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "Lstar": 30
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "접촉 켜",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "contact": true
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "소성 힌지 켜",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "plastic_hinge": true
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "반복 3회",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "cycles": 3
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "MERLIN2 호환",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "compat": true
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "호장법으로",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "type": "arclength"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "모드 6개",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "type": "modal",
+     "modes": 6
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "증분 200",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "increments": 200
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "해석 실행",
+  "expect": {
+   "ops": [],
+   "ok": true,
+   "ask": false,
+   "run": true
+  }
+ },
+ {
+  "text": "전체 크기 2배",
+  "expect": {
+   "ops": [
+    {
+     "op": "scale_geometry",
+     "factor": 2
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "m 단위를 mm 로",
+  "expect": {
+   "ops": [
+    {
+     "op": "scale_geometry",
+     "factor": 1000
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "변형 10배로 보여줘",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_view",
+     "scale": 10
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "49번 점 변위 보여줘",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "절점 #49 스텝-변위",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "ux",
+       "select": {
+        "nodes": [
+         48
+        ]
+       },
+       "name": "ux (절점 #49, mm)"
+      },
+      {
+       "quantity": "uy",
+       "select": {
+        "nodes": [
+         48
+        ]
+       },
+       "name": "uy (절점 #49, mm)"
+      },
+      {
+       "quantity": "uz",
+       "select": {
+        "nodes": [
+         48
+        ]
+       },
+       "name": "uz (절점 #49, mm)"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "49번 점 변위-힘 그래프",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "절점 #49 변위 uz - 힘 Fz",
+     "x": {
+      "quantity": "uz",
+      "select": {
+       "nodes": [
+        48
+       ]
+      }
+     },
+     "series": [
+      {
+       "quantity": "force.z",
+       "select": {
+        "nodes": [
+         48
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "49번 점 변위-에너지",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "절점 #49 변위 uz - 에너지",
+     "x": {
+      "quantity": "uz",
+      "select": {
+       "nodes": [
+        48
+       ]
+      }
+     },
+     "series": [
+      {
+       "quantity": "energy.total"
+      },
+      {
+       "quantity": "energy.bar"
+      },
+      {
+       "quantity": "energy.fold"
+      },
+      {
+       "quantity": "energy.bend"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "접힘 에너지 그래프",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "스텝-에너지",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "energy.fold"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "되돌려",
+  "expect": {
+   "ops": [],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "대칭 표시 꺼",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_view",
+     "mirror": false
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "모든 엣지를 휨으로",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_crease",
+     "edges": "all",
+     "type": "bend"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "49번 절점에 x 방향으로 2 kN",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "force",
+     "vector": [
+      2000,
+      0,
+      0
+     ],
+     "select": {
+      "nodes": [
+       48
+      ]
+     }
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "(10, 20, 0) 근처 점 고정",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "nearest": [
+       10,
+       20,
+       0
+      ]
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "x 최대 변을 x 방향으로 -15 mm 밀어",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "plane": {
+       "axis": "x",
+       "at": "max"
+      }
+     },
+     "dofs": [
+      1
+     ],
+     "value": -15,
+     "name": "강제 변위"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "초기결함 0.01",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "imperfection": 0.01
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "목표 하중 계수 2",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "lam_max": 2
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "반복 하중 꺼",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "cycles": 0,
+     "cycle_back": 0
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "바 단면적 0.1, 접힘 강성 0.01",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "bar_area": 0.1,
+     "calib": "manual"
+    },
+    {
+     "op": "set_bh",
+     "fold_k": 0.01,
+     "calib": "manual"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "자유도 해석",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "drivers": [],
+     "targets": []
+    },
+    {
+     "op": "set_step",
+     "type": "kinematic"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "강성 행렬 모드 6개",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "use_mass": false
+    },
+    {
+     "op": "set_step",
+     "type": "modal",
+     "modes": 6
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "알루미늄으로",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_material",
+     "E": 70000,
+     "nu": 0.33,
+     "rho": 2.7e-09,
+     "yield": 250
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "양단 고정",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "or": [
+       {
+        "plane": {
+         "axis": "y",
+         "at": "min"
+        }
+       },
+       {
+        "plane": {
+         "axis": "y",
+         "at": "max"
+        }
+       }
+      ]
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "네 모서리 고정",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "corners": true
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "x 최소 변 고정하고 x 최대 변을 x 방향으로 -10 mm",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "plane": {
+       "axis": "x",
+       "at": "min"
+      }
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    },
+    {
+     "op": "add_bc",
+     "select": {
+      "plane": {
+       "axis": "x",
+       "at": "max"
+      }
+     },
+     "dofs": [
+      1
+     ],
+     "value": -10,
+     "name": "강제 변위"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "1번 점 변위-힘 그래프",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "절점 #1 변위 uz - 힘 Fz",
+     "x": {
+      "quantity": "uz",
+      "select": {
+       "nodes": [
+        0
+       ]
+      }
+     },
+     "series": [
+      {
+       "quantity": "force.z",
+       "select": {
+        "nodes": [
+         0
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "총 에너지 그래프",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "스텝-에너지",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "energy.total"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "하중 계수 그래프",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "스텝-값",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "lam"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "바 에너지와 휨 에너지 그래프",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "스텝-에너지",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "energy.bar"
+      },
+      {
+       "quantity": "energy.bend"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "2-7 주름을 120도까지 구동",
+  "geo": "kin",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "drivers": [
+      "1-6"
+     ],
+     "targets": [
+      120
+     ]
+    },
+    {
+     "op": "set_step",
+     "type": "kinematic"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "2-7, 7-12, 6-7 주름 해공간 3차원 그래프",
+  "geo": "kin",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "type": "space3",
+     "edges": [
+      "1-6",
+      "6-11",
+      "5-6"
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "2-7 주름 각도 그래프",
+  "geo": "kin",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "이면각 2-7",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "angle",
+       "select": {
+        "edge": "1-6"
+       }
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "1-2 주름 해공간",
+  "geo": "kin",
+  "expect": {
+   "ops": [],
+   "ok": false,
+   "ask": true,
+   "run": false
+  }
+ },
+ {
+  "text": "ld1 2배",
+  "pre": [
+   "49번 절점에 아래로 1 N"
+  ],
+  "expect": {
+   "ops": [
+    {
+     "op": "update",
+     "id": "ld1",
+     "scale": 2
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "bc2 삭제",
+  "pre": [
+   "바닥 고정",
+   "8번 절점 고정"
+  ],
+  "expect": {
+   "ops": [
+    {
+     "op": "remove",
+     "id": "bc2"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "fix node 8",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "nodes": [
+       7
+      ]
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "8번 절점 고정"
+ },
+ {
+  "text": "constrain node 2 in y, z",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "nodes": [
+       1
+      ]
+     },
+     "dofs": [
+      2,
+      3
+     ],
+     "name": "구속 uy,uz"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "2번 절점 y, z 구속"
+ },
+ {
+  "text": "move node 59 by -30 mm in y",
+  "expect": {
+   "ops": [],
+   "ok": false,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "59번 절점을 y 방향으로 -30 mm"
+ },
+ {
+  "text": "fix the bottom",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "plane": {
+       "axis": "z",
+       "at": "min"
+      }
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "바닥 고정"
+ },
+ {
+  "text": "fix x min edge in z only",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "plane": {
+       "axis": "x",
+       "at": "min"
+      }
+     },
+     "dofs": [
+      3
+     ],
+     "name": "구속 uz"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "x 최소 변을 z 방향만 구속"
+ },
+ {
+  "text": "apply 1 N downward at node 49",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "force",
+     "vector": [
+      0,
+      0,
+      -1
+     ],
+     "select": {
+      "nodes": [
+       48
+      ]
+     }
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "49번 절점에 아래로 1 N"
+ },
+ {
+  "text": "-0.5 N in z per node at the top",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "force",
+     "vector": [
+      0,
+      0,
+      -0.5
+     ],
+     "select": {
+      "plane": {
+       "axis": "z",
+       "at": "max"
+      }
+     },
+     "per_node": true
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "상단 절점마다 z -0.5 N"
+ },
+ {
+  "text": "pressure 0.001 MPa downward on top",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "pressure",
+     "value": 0.001,
+     "select": {
+      "plane": {
+       "axis": "z",
+       "at": "max"
+      }
+     },
+     "mode": "global",
+     "direction": [
+      0,
+      0,
+      -1
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "윗면에 압력 0.001 MPa 아래로"
+ },
+ {
+  "text": "normal pressure 1 kPa on all faces",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "pressure",
+     "value": 0.001,
+     "select": {
+      "all": true
+     },
+     "mode": "local"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "전체 면에 수직으로 압력 1 kPa"
+ },
+ {
+  "text": "gravity",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "gravity",
+     "vector": [
+      0,
+      0,
+      -9806.65
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "자중"
+ },
+ {
+  "text": "symmetry x = 0",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_symmetry",
+     "axis": "x",
+     "at": 0
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "x = 0 대칭"
+ },
+ {
+  "text": "symmetry at x max",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_symmetry",
+     "axis": "x",
+     "select": {
+      "plane": {
+       "axis": "x",
+       "at": "max"
+      }
+     }
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "x 최대 면 대칭"
+ },
+ {
+  "text": "E 1000, poisson 0.3, thickness 0.25",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_material",
+     "E": 1000
+    },
+    {
+     "op": "set_material",
+     "nu": 0.3
+    },
+    {
+     "op": "set_material",
+     "thickness": 0.25
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "E 1000, 포아송 0.3, 두께 0.25"
+ },
+ {
+  "text": "paper",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_material",
+     "E": 3000,
+     "nu": 0.3,
+     "rho": 8e-10
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "종이로"
+ },
+ {
+  "text": "use N4B5",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "model": "N4B5"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "N4B5 로"
+ },
+ {
+  "text": "L* 30 mm",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "Lstar": 30
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "L* 30 mm"
+ },
+ {
+  "text": "contact on",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "contact": true
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "접촉 켜"
+ },
+ {
+  "text": "plastic hinge on",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "plastic_hinge": true
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "소성 힌지 켜"
+ },
+ {
+  "text": "3 cycles",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "cycles": 3
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "반복 3회"
+ },
+ {
+  "text": "MERLIN2 compat",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "compat": true
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "MERLIN2 호환"
+ },
+ {
+  "text": "arc-length",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "type": "arclength"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "호장법으로"
+ },
+ {
+  "text": "6 modes",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "type": "modal",
+     "modes": 6
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "모드 6개"
+ },
+ {
+  "text": "200 increments",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "increments": 200
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "증분 200"
+ },
+ {
+  "text": "run the analysis",
+  "expect": {
+   "ops": [],
+   "ok": true,
+   "ask": false,
+   "run": true
+  },
+  "lang": "en",
+  "same": "해석 실행"
+ },
+ {
+  "text": "scale the model 2x",
+  "expect": {
+   "ops": [
+    {
+     "op": "scale_geometry",
+     "factor": 2
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "전체 크기 2배"
+ },
+ {
+  "text": "convert m to mm",
+  "expect": {
+   "ops": [
+    {
+     "op": "scale_geometry",
+     "factor": 1000
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "m 단위를 mm 로"
+ },
+ {
+  "text": "deformation scale 10",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_view",
+     "scale": 10
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "변형 10배로 보여줘"
+ },
+ {
+  "text": "show displacement of node 49",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "절점 #49 스텝-변위",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "ux",
+       "select": {
+        "nodes": [
+         48
+        ]
+       },
+       "name": "ux (절점 #49, mm)"
+      },
+      {
+       "quantity": "uy",
+       "select": {
+        "nodes": [
+         48
+        ]
+       },
+       "name": "uy (절점 #49, mm)"
+      },
+      {
+       "quantity": "uz",
+       "select": {
+        "nodes": [
+         48
+        ]
+       },
+       "name": "uz (절점 #49, mm)"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "49번 점 변위 보여줘"
+ },
+ {
+  "text": "node 49 force-displacement plot",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "절점 #49 변위 uz - 힘 Fz",
+     "x": {
+      "quantity": "uz",
+      "select": {
+       "nodes": [
+        48
+       ]
+      }
+     },
+     "series": [
+      {
+       "quantity": "force.z",
+       "select": {
+        "nodes": [
+         48
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "49번 점 변위-힘 그래프"
+ },
+ {
+  "text": "node 49 displacement-energy plot",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "절점 #49 변위 uz - 에너지",
+     "x": {
+      "quantity": "uz",
+      "select": {
+       "nodes": [
+        48
+       ]
+      }
+     },
+     "series": [
+      {
+       "quantity": "energy.total"
+      },
+      {
+       "quantity": "energy.bar"
+      },
+      {
+       "quantity": "energy.fold"
+      },
+      {
+       "quantity": "energy.bend"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "49번 점 변위-에너지"
+ },
+ {
+  "text": "fold energy plot",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "스텝-에너지",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "energy.fold"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "접힘 에너지 그래프"
+ },
+ {
+  "text": "undo",
+  "expect": {
+   "ops": [],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "되돌려"
+ },
+ {
+  "text": "hide mirror",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_view",
+     "mirror": false
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "대칭 표시 꺼"
+ },
+ {
+  "text": "set all edges to bend",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_crease",
+     "edges": "all",
+     "type": "bend"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "모든 엣지를 휨으로"
+ },
+ {
+  "text": "2 kN in x at node 49",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_load",
+     "type": "force",
+     "vector": [
+      2000,
+      0,
+      0
+     ],
+     "select": {
+      "nodes": [
+       48
+      ]
+     }
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "49번 절점에 x 방향으로 2 kN"
+ },
+ {
+  "text": "fix the node nearest (10, 20, 0)",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "nearest": [
+       10,
+       20,
+       0
+      ]
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "(10, 20, 0) 근처 점 고정"
+ },
+ {
+  "text": "push x max edge by -15 mm in x",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "plane": {
+       "axis": "x",
+       "at": "max"
+      }
+     },
+     "dofs": [
+      1
+     ],
+     "value": -15,
+     "name": "강제 변위"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "x 최대 변을 x 방향으로 -15 mm 밀어"
+ },
+ {
+  "text": "imperfection 0.01",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "imperfection": 0.01
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "초기결함 0.01"
+ },
+ {
+  "text": "target load factor 2",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "lam_max": 2
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "목표 하중 계수 2"
+ },
+ {
+  "text": "cyclic loading off",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "cycles": 0,
+     "cycle_back": 0
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "반복 하중 꺼"
+ },
+ {
+  "text": "bar area 0.1, fold stiffness 0.01",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "bar_area": 0.1,
+     "calib": "manual"
+    },
+    {
+     "op": "set_bh",
+     "fold_k": 0.01,
+     "calib": "manual"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "바 단면적 0.1, 접힘 강성 0.01"
+ },
+ {
+  "text": "dof analysis",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "drivers": [],
+     "targets": []
+    },
+    {
+     "op": "set_step",
+     "type": "kinematic"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "자유도 해석"
+ },
+ {
+  "text": "stiffness modes 6",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "use_mass": false
+    },
+    {
+     "op": "set_step",
+     "type": "modal",
+     "modes": 6
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "강성 행렬 모드 6개"
+ },
+ {
+  "text": "aluminum",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_material",
+     "E": 70000,
+     "nu": 0.33,
+     "rho": 2.7e-09,
+     "yield": 250
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "알루미늄으로"
+ },
+ {
+  "text": "fix both ends",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "or": [
+       {
+        "plane": {
+         "axis": "y",
+         "at": "min"
+        }
+       },
+       {
+        "plane": {
+         "axis": "y",
+         "at": "max"
+        }
+       }
+      ]
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "양단 고정"
+ },
+ {
+  "text": "fix the four corners",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "corners": true
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "네 모서리 고정"
+ },
+ {
+  "text": "fix x min edge, then move x max edge by -10 mm in x",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_bc",
+     "select": {
+      "plane": {
+       "axis": "x",
+       "at": "min"
+      }
+     },
+     "dofs": [
+      1,
+      2,
+      3
+     ],
+     "type": "fixed",
+     "name": "고정"
+    },
+    {
+     "op": "add_bc",
+     "select": {
+      "plane": {
+       "axis": "x",
+       "at": "max"
+      }
+     },
+     "dofs": [
+      1
+     ],
+     "value": -10,
+     "name": "강제 변위"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "x 최소 변 고정하고 x 최대 변을 x 방향으로 -10 mm"
+ },
+ {
+  "text": "node 1 load-displacement plot",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "절점 #1 변위 uz - 힘 Fz",
+     "x": {
+      "quantity": "uz",
+      "select": {
+       "nodes": [
+        0
+       ]
+      }
+     },
+     "series": [
+      {
+       "quantity": "force.z",
+       "select": {
+        "nodes": [
+         0
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "1번 점 변위-힘 그래프"
+ },
+ {
+  "text": "total energy plot",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "스텝-에너지",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "energy.total"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "총 에너지 그래프"
+ },
+ {
+  "text": "load factor plot",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "스텝-값",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "lam"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "하중 계수 그래프"
+ },
+ {
+  "text": "bar energy and bend energy plot",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "스텝-에너지",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "energy.bar"
+      },
+      {
+       "quantity": "energy.bend"
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "바 에너지와 휨 에너지 그래프"
+ },
+ {
+  "text": "drive crease 2-7 to 120 deg",
+  "geo": "kin",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_bh",
+     "drivers": [
+      "1-6"
+     ],
+     "targets": [
+      120
+     ]
+    },
+    {
+     "op": "set_step",
+     "type": "kinematic"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "2-7 주름을 120도까지 구동"
+ },
+ {
+  "text": "solution space of creases 2-7, 7-12, 6-7",
+  "geo": "kin",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "type": "space3",
+     "edges": [
+      "1-6",
+      "6-11",
+      "5-6"
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "2-7, 7-12, 6-7 주름 해공간 3차원 그래프"
+ },
+ {
+  "text": "crease 2-7 angle plot",
+  "geo": "kin",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "이면각 2-7",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "angle",
+       "select": {
+        "edge": "1-6"
+       }
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "2-7 주름 각도 그래프"
+ },
+ {
+  "text": "solution space of crease 1-2",
+  "geo": "kin",
+  "expect": {
+   "ops": [],
+   "ok": false,
+   "ask": true,
+   "run": false
+  },
+  "lang": "en",
+  "same": "1-2 주름 해공간"
+ },
+ {
+  "text": "ld1 x2",
+  "pre": [
+   "49번 절점에 아래로 1 N"
+  ],
+  "expect": {
+   "ops": [
+    {
+     "op": "update",
+     "id": "ld1",
+     "scale": 2
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "ld1 2배"
+ },
+ {
+  "text": "delete bc2",
+  "pre": [
+   "바닥 고정",
+   "8번 절점 고정"
+  ],
+  "expect": {
+   "ops": [
+    {
+     "op": "remove",
+     "id": "bc2"
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  },
+  "lang": "en",
+  "same": "bc2 삭제"
+ }
+]

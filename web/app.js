@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { api as backendApi } from './backend.js';
+import { t, getLang, setLang, onLang, scanDom, applyDom } from './i18n.js';
+const tr = t;
+const edgeLab = (k) => String(k).split('-').map((x) => +x + 1).join('-');
+const bcName = (n) => {
+  const s = t(n);
+  return s !== n || getLang() === 'ko' ? s : n.replace(/^구속/, t('구속')).replace(/^강제 변위/, t('강제 변위'));
+};
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -678,7 +685,7 @@ async function loadResult() {
   $('frame').value = R.index;
   const fsel = $('field');
   fsel.innerHTML = '';
-  for (const f of st.result.fields) fsel.append(new Option(FIELD_LABEL[f] || f, f));
+  for (const f of st.result.fields) fsel.append(new Option(t(FIELD_LABEL[f] || f), f));
   const pref = (kind === 'static' ? ['barForce'] : ['U']).find((q) => st.result.fields.includes(q));
   R.field = pref || 'U';
   fsel.value = R.field;
@@ -759,7 +766,7 @@ async function showFrame() {
   followSymbols();
   $('frameLabel').textContent = `${R.index + 1}/${st.result.frames.length} · ${f.label}`;
   $('legend').hidden = !$('showResult').checked;
-  $('legendTitle').textContent = (FIELD_LABEL[R.field] || R.field) + (R.field.endsWith('Density') || R.field.startsWith('bar') ? ' · 전 스텝 최대 기준' : '');
+  $('legendTitle').textContent = t(FIELD_LABEL[R.field] || R.field) + (R.field.endsWith('Density') || R.field.startsWith('bar') ? t(' · 전 스텝 최대 기준') : '');
   applyVisibility();
   const ticks = $('legendTicks');
   ticks.innerHTML = '';
@@ -791,10 +798,10 @@ function download(url, name) {
 
 async function saveVideo() {
   if (!R.mesh) return;
-  if (!window.MediaRecorder || !canvas.captureStream) return note('이 브라우저는 영상 저장을 지원하지 않습니다. GIF 를 쓰세요', true);
+  if (!window.MediaRecorder || !canvas.captureStream) return note(t('이 브라우저는 영상 저장을 지원하지 않습니다. GIF 를 쓰세요'), true);
   stopPlay();
   const mime = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m));
-  if (!mime) return note('지원되는 영상 형식이 없습니다. GIF 를 쓰세요', true);
+  if (!mime) return note(t('지원되는 영상 형식이 없습니다. GIF 를 쓰세요'), true);
   const keep = R.index;
   const rec = new MediaRecorder(canvas.captureStream(30), { mimeType: mime, videoBitsPerSecond: 8e6 });
   const chunks = [];
@@ -879,14 +886,14 @@ function renderLists() {
   const pv = st.preview;
   const bl = $('bcList');
   bl.innerHTML = '';
-  $('bcCount').textContent = st.spec.bcs.length ? `${st.spec.bcs.length}개` : '';
-  if (!st.spec.bcs.length) bl.append(el('div', 'empty', '없음. 오른쪽에서 문장으로 지시하세요'));
+  $('bcCount').textContent = st.spec.bcs.length ? t('{n}개', { n: st.spec.bcs.length }) : '';
+  if (!st.spec.bcs.length) bl.append(el('div', 'empty', t('없음. 오른쪽에서 문장으로 지시하세요')));
   for (const b of st.spec.bcs) {
     const p = pv.bcs.find((x) => x.id === b.id);
     const it = el('div', 'item' + (highlightId === b.id ? ' sel' : ''));
     const top = el('div', 'top');
     const nm = el('span');
-    nm.append(el('span', 'id', b.id), document.createTextNode(b.name || '구속'));
+    nm.append(el('span', 'id', b.id), document.createTextNode(bcName(b.name || '구속')));
     const x = el('button', 'x', '✕');
     x.onclick = (e) => {
       e.stopPropagation();
@@ -894,14 +901,14 @@ function renderLists() {
     };
     top.append(nm, x);
     const bh = st.spec.solver === 'bh' ? st.spec.bh || {} : {};
-    const cyc = b.value && bh.cycles > 0 ? ` · 반복 ${bh.cycles}회 (0 → ${b.value} → ${bh.cycle_back ? (b.value > 0 ? '-' : '+') + bh.cycle_back : '0'} → 0)` : '';
-    it.append(top, el('div', 'desc', `${p ? p.desc : '?'} · ${describeBC(b)} · 절점 ${p ? p.nodes.length : 0}개${cyc}`));
+    const cyc = b.value && bh.cycles > 0 ? t(' · 반복 {n}회 (0 → {v} → {b} → 0)', { n: bh.cycles, v: b.value, b: bh.cycle_back ? (b.value > 0 ? '-' : '+') + bh.cycle_back : '0' }) : '';
+    it.append(top, el('div', 'desc', `${p ? p.desc : '?'} · ${describeBC(b)} · ${t('절점 {n}개', { n: p ? p.nodes.length : 0 })}${cyc}`));
     const ed = el('div', 'edit');
     const inp = el('input');
     inp.type = 'number';
     inp.step = 'any';
     inp.value = b.value;
-    inp.title = '지정 변위 (mm), 0이면 고정';
+    inp.title = t('지정 변위 (mm), 0이면 고정');
     inp.onclick = (e) => e.stopPropagation();
     inp.onchange = () => ops([{ op: 'update', id: b.id, value: +inp.value || 0 }]);
     ed.append(inp);
@@ -915,9 +922,9 @@ function renderLists() {
   }
   const ll = $('ldList');
   ll.innerHTML = '';
-  $('ldCount').textContent = st.spec.loads.length ? `${st.spec.loads.length}개` : '';
-  if (!st.spec.loads.length) ll.append(el('div', 'empty', '없음'));
-  const tn = { force: '힘 (N)', pressure: '압력 (MPa)', gravity: '자중 (mm/s²)' };
+  $('ldCount').textContent = st.spec.loads.length ? t('{n}개', { n: st.spec.loads.length }) : '';
+  if (!st.spec.loads.length) ll.append(el('div', 'empty', t('없음')));
+  const tn = { force: t('힘 (N)'), pressure: t('압력 (MPa)'), gravity: t('자중 (mm/s²)') };
   for (const l of st.spec.loads) {
     const p = pv.loads.find((x) => x.id === l.id);
     const it = el('div', 'item' + (highlightId === l.id ? ' sel' : ''));
@@ -930,19 +937,19 @@ function renderLists() {
       ops([{ op: 'remove', id: l.id }]);
     };
     top.append(nm, x);
-    it.append(top, el('div', 'desc', `${p ? p.desc : '?'}${p && p.total ? ' · 합 [' + p.total.map(fmt).join(', ') + ']' : ''}${p && p.nodes.length ? ' · 절점 ' + p.nodes.length + '개' : ''}`));
+    it.append(top, el('div', 'desc', `${p ? p.desc : '?'}${p && p.total ? t(' · 합 [{v}]', { v: p.total.map(fmt).join(', ') }) : ''}${p && p.nodes.length ? ' · ' + t('절점 {n}개', { n: p.nodes.length }) : ''}`));
     const ed = el('div', 'edit');
     if (l.type === 'pressure') {
-      const mb = el('button', 'mini', l.mode === 'local' ? 'Local (법선)' : 'Global (고정 방향)');
-      mb.title = 'Local: 변형을 따라 면 법선 방향 / Global: 중력처럼 고정 방향, 처음 면적 기준';
+      const mb = el('button', 'mini', l.mode === 'local' ? t('Local (법선)') : t('Global (고정 방향)'));
+      mb.title = t('Local: 변형을 따라 면 법선 방향 / Global: 중력처럼 고정 방향, 처음 면적 기준');
       mb.onclick = (e) => {
         e.stopPropagation();
         ops([{ op: 'update', id: l.id, mode: l.mode === 'local' ? 'global' : 'local', ...(l.mode === 'local' && !l.direction ? { direction: [0, 0, -1] } : {}) }]);
       };
       ed.append(mb);
       if (l.mode === 'local') {
-        const fb = el('button', 'mini', '방향 뒤집기');
-        fb.title = '이 하중의 모든 면 방향을 뒤집기 (면을 고른 상태면 고른 면만)';
+        const fb = el('button', 'mini', t('방향 뒤집기'));
+        fb.title = t('이 하중의 모든 면 방향을 뒤집기 (면을 고른 상태면 고른 면만)');
         fb.onclick = (e) => {
           e.stopPropagation();
           const pf = (pv.loads.find((x) => x.id === l.id) || {}).faces || [];
@@ -984,27 +991,27 @@ function renderLists() {
   const sl = $('syList');
   sl.innerHTML = '';
   const sys = st.spec.symmetry || [];
-  $('syCount').textContent = sys.length ? `${sys.length}개` : '';
-  if (!sys.length) sl.append(el('div', 'empty', '없음 · 예: "x = 0 대칭", "x 최대 면 대칭"'));
+  $('syCount').textContent = sys.length ? t('{n}개', { n: sys.length }) : '';
+  if (!sys.length) sl.append(el('div', 'empty', t('없음 · 예: "x = 0 대칭", "x 최대 면 대칭"')));
   for (const y of sys) {
     const p = (pv.symmetry || []).find((q) => q.id === y.id);
     const it = el('div', 'item' + (highlightId === y.id ? ' sel' : ''));
     const top = el('div', 'top');
     const nm = el('span');
-    nm.append(el('span', 'id', y.id), document.createTextNode(`${y.axis} 대칭면`));
+    nm.append(el('span', 'id', y.id), document.createTextNode(t('{a} 대칭면', { a: y.axis })));
     const x = el('button', 'x', '✕');
     x.onclick = (e) => {
       e.stopPropagation();
       ops([{ op: 'remove', id: y.id }]);
     };
     top.append(nm, x);
-    it.append(top, el('div', 'desc', `${p ? p.desc : ''} · 평면 위 테두리 엣지 ${p ? p.edges.length : 0}개 (법선 변위 0 + 반쪽 접힘 힌지)`));
+    it.append(top, el('div', 'desc', `${p ? p.desc : ''} · ${t('평면 위 테두리 엣지 {n}개 (법선 변위 0 + 반쪽 접힘 힌지)', { n: p ? p.edges.length : 0 })}`));
     const ed = el('div', 'edit');
     const inp = el('input');
     inp.type = 'number';
     inp.step = 'any';
     inp.value = y.at;
-    inp.title = '평면 위치 (mm)';
+    inp.title = t('평면 위치 (mm)');
     inp.onclick = (e) => e.stopPropagation();
     inp.onchange = () => ops([{ op: 'update', id: y.id, at: +inp.value || 0 }]);
     ed.append(inp);
@@ -1023,16 +1030,17 @@ function renderLists() {
 }
 
 function renderControls() {
-  $('tools').innerHTML = `<b class="on" title="C++ 코어를 WebAssembly 로 빌드해 이 브라우저 안에서 계산">WASM 계산 ●</b> <b class="on" title="MERLIN2 v1.1 (Liu & Paulino 2018) 와 수치 대조">MERLIN2 대조 ●</b>`;
+  $('tools').innerHTML = `<b class="on" title="${t('C++ 코어를 WebAssembly 로 빌드해 이 브라우저 안에서 계산')}">${t('WASM 계산 ●')}</b> <b class="on" title="${t('MERLIN2 v1.1 (Liu & Paulino 2018) 와 수치 대조')}">${t('MERLIN2 대조 ●')}</b> <button id="langBtn" class="lang" type="button">${getLang() === 'ko' ? 'EN' : 'KR'}</button>`;
+  $('langBtn').onclick = () => setLang(getLang() === 'ko' ? 'en' : 'ko');
   if (!st.model) {
-    $('modelInfo').textContent = '불러온 모델이 없습니다';
+    $('modelInfo').textContent = t('불러온 모델이 없습니다');
     return;
   }
   const c = st.model.counts;
   const lo = st.model.bbox.min.map(fmt).join(', ');
   const hi = st.model.bbox.max.map(fmt).join(', ');
   const sz = st.model.bbox.max.map((v, i) => v - st.model.bbox.min[i]);
-  $('modelInfo').textContent = `${st.model.source}\n절점 ${c.nodes} · 패널 ${c.shells} (삼각형 ${st.model.tri} · 사각형 ${st.model.quad}${st.model.poly ? ' · 다각형 ' + st.model.poly : ''})\n크기 ${sz.map((v) => v.toFixed(3)).join(' × ')} mm (대각선 ${Math.hypot(...sz).toFixed(3)})\n범위 [${lo}] ~ [${hi}]\n절점 번호는 화면의 #번호 (OBJ 순서, 1부터)\n우클릭: 절점·엣지·면 정보`;
+  $('modelInfo').textContent = `${st.model.source}\n` + t('절점 {n} · 패널 {p} (삼각형 {t} · 사각형 {q}{poly})\n크기 {sz} mm (대각선 {d})\n범위 [{lo}] ~ [{hi}]\n절점 번호는 화면의 #번호 (OBJ 순서, 1부터)\n우클릭: 절점·엣지·면 정보', { n: c.nodes, p: c.shells, t: st.model.tri, q: st.model.quad, poly: st.model.poly ? t(' · 다각형 {n}', { n: st.model.poly }) : '', sz: sz.map((v) => v.toFixed(3)).join(' × '), d: Math.hypot(...sz).toFixed(3), lo, hi });
   const s = st.spec;
   $('stepType').value = s.step.type;
   $('increments').value = s.step.increments;
@@ -1058,11 +1066,11 @@ function renderSummary() {
   box.innerHTML = '';
   if (!st || !st.result) return;
   const head = el('span');
-  head.innerHTML = `<b>솔버</b>${st.result.solver} · ${st.result.kind}${st.solve_time !== null ? ` · ${st.solve_time}s` : ''}${st.stale ? ' · <em style="color:var(--warn)">조건이 바뀌었습니다. 다시 해석하세요</em>' : ''}`;
+  head.innerHTML = `<b>${t('솔버')}</b>${st.result.solver} · ${st.result.kind}${st.solve_time !== null ? ` · ${st.solve_time}s` : ''}${st.stale ? ` · <em style="color:var(--warn)">${t('조건이 바뀌었습니다. 다시 해석하세요')}</em>` : ''}`;
   box.append(head);
   for (const w of st.warnings || []) box.append(el('span', 'note warn', '⚠ ' + w));
   for (const [k, v] of Object.entries(st.result.summary)) {
-    if (k === '참고') {
+    if (k === 'notes') {
       for (const n of v) box.append(el('span', 'note', n));
       continue;
     }
@@ -1146,7 +1154,7 @@ async function loadPlots() {
   if (!st || !st.spec) return;
   if (!st.spec.plots.length && !st.result) return;
   if (!st.result) {
-    box.append(el('div', 'info', `그래프 ${st.spec.plots.length}개가 등록되어 있습니다. 해석을 실행하면 표시됩니다.`));
+    box.append(el('div', 'info', t('그래프 {n}개가 등록되어 있습니다. 해석을 실행하면 표시됩니다.', { n: st.spec.plots.length })));
     return;
   }
   const list = await api('/api/plots');
@@ -1155,12 +1163,12 @@ async function loadPlots() {
     const t = el('div', 'ptitle');
     const x = el('button', '', '✕');
     x.onclick = () => ops([{ op: 'remove', id: p.id }]);
-    t.append(el('span', '', p.auto ? `기본 · ${p.title}` : `${p.id} · ${p.title}`));
+    t.append(el('span', '', p.auto ? `${tr('기본')} · ${p.title}` : `${p.id} · ${p.title}`));
     if (!p.auto) t.append(x);
     d.append(t);
     if (p.error) d.append(el('div', 'perr', p.error));
     else if (p.type === '3d') {
-      t.firstChild.textContent += ` · 기구 자유도 ${p.dof} · 이면각 (도)`;
+      t.firstChild.textContent += tr(' · 기구 자유도 {n} · 이면각 (도)', { n: p.dof });
       box.append(d);
       plot3d(p, d);
       continue;
@@ -1176,7 +1184,7 @@ async function loadPlots() {
       });
       d.append(lg);
       const csv = el('button', 'mini', 'CSV');
-      csv.title = '이 그래프 데이터를 CSV 로 저장';
+      csv.title = tr('이 그래프 데이터를 CSV 로 저장');
       csv.onclick = () => {
         const rows = [['x', ...p.series.map((q) => q.name)].join(',')];
         const n = Math.max(...p.series.map((q) => q.x.length));
@@ -1224,11 +1232,11 @@ async function refresh(s, opt = {}) {
 function addMsg(role, text, extra) {
   const log = $('chatLog');
   const m = el('div', 'msg ' + (role === 'user' ? 'user' : 'bot'));
-  if (extra && extra.engine) m.append(el('span', 'tag', extra.engine === 'llm' ? 'LLM · ' + (extra.model || '') : '규칙 기반'));
+  if (extra && extra.engine) m.append(el('span', 'tag', extra.engine === 'llm' ? 'LLM · ' + (extra.model || '') : t('규칙 기반')));
   m.append(document.createTextNode(text));
-  if (extra && extra.ops && extra.ops.length) m.append(el('div', 'ops', extra.ops.map((o) => JSON.stringify(o, (k, v) => ((k === 'points' || k === 'segments') && Array.isArray(v) ? `[${v.length}개]` : v))).join('\n')));
+  if (extra && extra.ops && extra.ops.length) m.append(el('div', 'ops', extra.ops.map((o) => JSON.stringify(o, (k, v) => ((k === 'points' || k === 'segments') && Array.isArray(v) ? `[${v.length}]` : v))).join('\n')));
   if (extra && extra.note) m.append(el('div', 'notetxt', extra.note));
-  if (extra && extra.error) m.append(el('div', 'errtxt', '적용 실패: ' + extra.error));
+  if (extra && extra.error) m.append(el('div', 'errtxt', t('적용 실패: ') + extra.error));
   log.append(m);
   log.scrollTop = log.scrollHeight;
 }
@@ -1236,20 +1244,20 @@ function addMsg(role, text, extra) {
 async function sendChat(text) {
   if (!text.trim()) return;
   if (!st || !st.model) {
-    addMsg('bot', '먼저 지오메트리를 불러오세요.');
+    addMsg('bot', t('먼저 지오메트리를 불러오세요.'));
     return;
   }
   addMsg('user', text);
   $('chatInput').value = '';
   const wait = el('div', 'msg bot', '');
   const label = document.createElement('span');
-  const stop = el('button', 'danger stop', 'LLM 중단');
+  const stop = el('button', 'danger stop', t('LLM 중단'));
   stop.type = 'button';
   stop.onclick = () => api('/api/cancel/llm', { method: 'POST' }).catch(() => {});
   wait.append(label, stop);
   const t0 = Date.now();
   const tick = () => {
-    label.textContent = '처리 중… ' + Math.round((Date.now() - t0) / 1000) + '초 (로컬 LLM은 처음 1~2분 걸릴 수 있습니다)';
+    label.textContent = t('처리 중… {s}초 (로컬 LLM은 처음 1~2분 걸릴 수 있습니다)', { s: Math.round((Date.now() - t0) / 1000) });
   };
   tick();
   const timer = setInterval(tick, 1000);
@@ -1260,7 +1268,7 @@ async function sendChat(text) {
     clearInterval(timer);
     wait.remove();
     const c = s.chat;
-    addMsg('bot', c.reply || (c.ops.length ? '적용했습니다.' : '적용할 내용이 없습니다.'), c);
+    addMsg('bot', c.reply || (c.ops.length ? t('적용했습니다.') : t('적용할 내용이 없습니다.')), c);
     await refresh(s, { keepResult: !!s.result });
     if (c.view && c.view.scale) {
       R.viewScale = c.view.scale;
@@ -1278,7 +1286,7 @@ async function sendChat(text) {
   } catch (e) {
     clearInterval(timer);
     wait.remove();
-    if (e.message.includes('중단')) addMsg('bot', e.message);
+    if (e.message.includes('중단') || /abort|stop/i.test(e.message)) addMsg('bot', e.message);
     else addMsg('bot', '', { error: e.message });
   }
 }
@@ -1286,12 +1294,15 @@ async function sendChat(text) {
 async function loadExamples() {
   const list = await api('/api/examples');
   const sel = $('example');
+  const keep = sel.value;
+  while (sel.options.length > 1) sel.remove(1);
   for (const e of list) {
     const o = new Option(e.title, e.name);
     o.dataset.note = e.note;
     o.dataset.prompts = JSON.stringify(e.prompts);
     sel.append(o);
   }
+  sel.value = keep;
 }
 
 function chips(prompts) {
@@ -1308,7 +1319,7 @@ function chips(prompts) {
 async function openExample(preset) {
   const sel = $('example');
   if (!sel.value) return;
-  note('불러오는 중…');
+  note(t('불러오는 중…'));
   try {
     const s = await api(`/api/examples/${sel.value}?preset=${preset}`, { method: 'POST' });
     clearSel();
@@ -1333,19 +1344,19 @@ async function llmRefresh(save) {
   const s = $('llmStatus');
   renderLlmInfo(r);
   if (!r.llm.url || !r.llm.model) {
-    s.textContent = '규칙 기반 사용 · LLM 미설정';
+    s.textContent = t('규칙 기반 사용 · LLM 미설정');
     s.className = '';
   } else if (r.llm.mode === 'rule') {
-    s.textContent = '규칙 기반 사용';
+    s.textContent = t('규칙 기반 사용');
     s.className = '';
   } else if (r.llm.mode === 'rule_first') {
-    s.textContent = r.status.ok && r.status.has_model ? '규칙 우선 · LLM 대기 중' : '규칙 우선 · LLM 없음';
+    s.textContent = r.status.ok && r.status.has_model ? t('규칙 우선 · LLM 대기 중') : t('규칙 우선 · LLM 없음');
     s.className = r.status.ok && r.status.has_model ? 'ok' : '';
   } else if (r.status.ok) {
-    s.textContent = r.status.has_model ? '연결됨' : `연결됨 · 모델 '${r.llm.model}' 없음`;
+    s.textContent = r.status.has_model ? t('연결됨') : t("연결됨 · 모델 '{m}' 없음", { m: r.llm.model });
     s.className = r.status.has_model ? 'ok' : 'bad';
   } else {
-    s.textContent = '연결 안 됨 → 규칙 기반으로 대체';
+    s.textContent = t('연결 안 됨 → 규칙 기반으로 대체');
     s.className = 'bad';
   }
 }
@@ -1364,16 +1375,16 @@ function renderLlmInfo(r, test) {
     d.append(b, sp);
     rows.push(d);
   };
-  add('연결 대상', `${stt.provider || r.provider || ''} · ${stt.host || ''}`);
-  add('모델', r.llm.model, stt.ok ? (stt.has_model ? 'good' : 'badt') : '');
-  add('API 키', r.llm.has_key ? '입력됨' : '없음');
-  if (r.llm.mode === 'rule') add('현재 방식', 'LLM을 부르지 않고 규칙 기반만 사용 중');
-  else if (r.llm.mode === 'rule_first') add('현재 방식', '규칙이 이해한 문장은 즉시 처리, 못 알아들은 문장만 LLM으로 보냄');
-  else if (stt.ok) add('서버 응답', `정상 (${stt.ms} ms) · 모델 ${stt.models.length}개 목록${stt.has_model ? '에 선택한 모델이 있음' : '에 선택한 모델이 없음'}`, stt.has_model ? 'good' : 'badt');
-  else add('서버 응답', '연결 실패: ' + (stt.error || '') + (r.llm.mode === 'rule_first' ? ' (규칙으로 처리되는 문장은 그대로 동작합니다)' : ''), 'badt');
+  add(t('연결 대상'), `${stt.provider || r.provider || ''} · ${stt.host || ''}`);
+  add(t('모델'), r.llm.model, stt.ok ? (stt.has_model ? 'good' : 'badt') : '');
+  add(t('API 키'), r.llm.has_key ? t('입력됨') : t('없음'));
+  if (r.llm.mode === 'rule') add(t('현재 방식'), t('LLM을 부르지 않고 규칙 기반만 사용 중'));
+  else if (r.llm.mode === 'rule_first') add(t('현재 방식'), t('규칙이 이해한 문장은 즉시 처리, 못 알아들은 문장만 LLM으로 보냄'));
+  else if (stt.ok) add(t('서버 응답'), t(stt.has_model ? '정상 ({ms} ms) · 모델 {n}개 목록에 선택한 모델이 있음' : '정상 ({ms} ms) · 모델 {n}개 목록에 선택한 모델이 없음', { ms: stt.ms, n: stt.models.length }), stt.has_model ? 'good' : 'badt');
+  else add(t('서버 응답'), t('연결 실패: ') + (stt.error || '') + (r.llm.mode === 'rule_first' ? t(' (규칙으로 처리되는 문장은 그대로 동작합니다)') : ''), 'badt');
   if (test) {
-    if (test.ok) add('실제 응답', `성공 (${(test.ms / 1000).toFixed(1)}초) · 응답한 모델 ${test.model || '?'} · JSON ${test.json_ok ? '정상' : '아님'} · "${test.reply}"`, test.json_ok ? 'good' : 'badt');
-    else add('실제 응답', '실패: ' + test.error, 'badt');
+    if (test.ok) add(t('실제 응답'), t('성공 ({s}초) · 응답한 모델 {m} · JSON {j}', { s: (test.ms / 1000).toFixed(1), m: test.model || '?', j: test.json_ok ? t('정상') : t('아님') }) + ` · "${test.reply}"`, test.json_ok ? 'good' : 'badt');
+    else add(t('실제 응답'), t('실패: ') + test.error, 'badt');
   }
   box.replaceChildren(...rows);
 }
@@ -1381,17 +1392,17 @@ function renderLlmInfo(r, test) {
 async function llmTest() {
   const b = $('llmTest');
   b.disabled = true;
-  b.textContent = '테스트 중… (로컬 모델은 첫 응답이 느립니다)';
+  b.textContent = t('테스트 중… (로컬 모델은 첫 응답이 느립니다)');
   try {
     await llmRefresh(true);
-    const t = await api('/api/llm/test', { method: 'POST' });
+    const tt = await api('/api/llm/test', { method: 'POST' });
     const r = await api('/api/llm');
-    renderLlmInfo(r, t.test);
+    renderLlmInfo(r, tt.test);
   } catch (e) {
     note(e.message, true);
   }
   b.disabled = false;
-  b.textContent = '실제 응답 테스트';
+  b.textContent = t('실제 응답 테스트');
 }
 
 function viewTopo() {
@@ -1409,7 +1420,7 @@ function viewTopo() {
   for (const f of v.shells) for (let i = 0; i < f.length; i++) add(f[i], f[(i + 1) % f.length]);
   for (const f of v.boundary) for (let i = 0; i < 3; i++) add(f[i], f[(i + 1) % 3]);
   for (const b of v.beams) add(b[0], b[1]);
-  const faces = v.shells.map((f, i) => ({ n: f, kind: '면', id: i, group: (v.shell_group || [])[i] })).concat(v.boundary.map((f, i) => ({ n: f, kind: '솔리드 표면 삼각형', id: i })));
+  const faces = v.shells.map((f, i) => ({ n: f, kind: t('면'), id: i, group: (v.shell_group || [])[i] })).concat(v.boundary.map((f, i) => ({ n: f, kind: t('솔리드 표면 삼각형'), id: i })));
   v._edges = edges;
   v._faces = faces;
   return v;
@@ -1549,15 +1560,15 @@ function pickInfo(ev) {
     const p0 = v.nodes[best];
     picked = p0;
     mark([p], 'pt');
-    lines.push(`절점 #${best + 1}`, `좌표 ${vtxt(p0)}`);
-    if (p !== p0) lines.push(`변형 후 ${vtxt(p)}`);
+    lines.push(t('절점 #{n}', { n: best + 1 }), t('좌표 {v}', { v: vtxt(p0) }));
+    if (p !== p0) lines.push(t('변형 후 {v}', { v: vtxt(p) }));
     if (R.mesh && G.result.visible && best < (R.mesh.nInput || 0)) {
       const f = R.frames.get(`${R.index}|${R.field}`);
       if (f) lines.push(`U = [${f.U[best].map(fmt).join(', ')}] mm`);
     }
     const deg = v._edges.filter(([a, b]) => a === best || b === best).length;
-    lines.push(`연결 엣지 ${deg}개`);
-    chip = `${best + 1}번 절점`;
+    lines.push(t('연결 엣지 {n}개', { n: deg }));
+    chip = t('{n}번 절점', { n: best + 1 });
   } else if (be >= 0) {
     const [a, b] = v._edges[be];
     const pa = infoPos(a);
@@ -1565,7 +1576,7 @@ function pickInfo(ev) {
     const d = pb.map((c, i) => c - pa[i]);
     const L = Math.hypot(...d);
     mark([pa, pb], 'ln');
-    lines.push(`엣지 #${be + 1} (절점 #${a + 1} → #${b + 1})`, `길이 ${f3(L)} mm`, `벡터 ${vtxt(d)}`, `방향 ${vtxt(d.map((c) => c / (L || 1)))}`);
+    lines.push(t('엣지 #{e} (절점 #{a} → #{b})', { e: be + 1, a: a + 1, b: b + 1 }), t('길이 {v} mm', { v: f3(L) }), t('벡터 {v}', { v: vtxt(d) }), t('방향 {v}', { v: vtxt(d.map((c) => c / (L || 1))) }));
   } else if (hitFace >= 0) {
     const f = v._faces[hitFace];
     const P = f.n.map((i) => infoPos(i));
@@ -1580,24 +1591,24 @@ function pickInfo(ev) {
     const A = Math.hypot(...nv);
     const c = [0, 1, 2].map((k) => P.reduce((s, p) => s + p[k], 0) / P.length);
     mark(P, 'ln');
-    lines.push(`${f.kind} #${f.id + 1}${f.group ? ` (그룹 ${f.group})` : ''}`, `절점 ${f.n.map((i) => '#' + (i + 1)).join(', ')}`, `면적 ${f3(A)} mm²`, `법선 ${vtxt(nv.map((x) => x / (A || 1)))}`, `중심 ${vtxt(c)}`);
-    chip = `점 (${c.map((x) => +x.toFixed(4)).join(', ')})`;
+    lines.push(`${f.kind} #${f.id + 1}${f.group ? t(' (그룹 {g})', { g: f.group }) : ''}`, t('절점 {v}', { v: f.n.map((i) => '#' + (i + 1)).join(', ') }), t('면적 {v} mm²', { v: f3(A) }), t('법선 {v}', { v: vtxt(nv.map((x) => x / (A || 1))) }), t('중심 {v}', { v: vtxt(c) }));
+    chip = t('점 ({v})', { v: c.map((x) => +x.toFixed(4)).join(', ') });
   } else return;
   const box = el('div', 'pickinfo');
   for (const t of lines) box.append(el('div', '', t));
   hud.append(box);
-  const cp = el('button', '', '복사');
+  const cp = el('button', '', t('복사'));
   cp.onclick = () => navigator.clipboard && navigator.clipboard.writeText(lines.join('\n'));
   hud.append(cp);
   if (best >= 0) {
-    const gb = el('button', '', '변위 그래프');
-    gb.title = '이 절점의 ux, uy, uz 이력을 그래프로 추가';
+    const gb = el('button', '', t('변위 그래프'));
+    gb.title = t('이 절점의 ux, uy, uz 이력을 그래프로 추가');
     const nd = best;
-    gb.onclick = () => ops([{ op: 'add_plot', title: `절점 #${nd + 1} 스텝-변위`, x: { quantity: 'step' }, series: ['ux', 'uy', 'uz'].map((q) => ({ quantity: q, select: { nodes: [nd] }, name: `${q} #${nd + 1}` })) }]);
+    gb.onclick = () => ops([{ op: 'add_plot', title: t('절점 #{n} 스텝-변위', { n: nd + 1 }), x: { quantity: 'step' }, series: ['ux', 'uy', 'uz'].map((q) => ({ quantity: q, select: { nodes: [nd] }, name: `${q} #${nd + 1}` })) }]);
     hud.append(gb);
   }
   if (chip) {
-    const b = el('button', '', '지시문에 넣기');
+    const b = el('button', '', t('지시문에 넣기'));
     b.onclick = () => {
       const t = $('chatInput');
       t.value += `${t.value && !t.value.endsWith(' ') ? ' ' : ''}${chip} `;
@@ -1631,14 +1642,14 @@ function edgeLabel(v, k) {
   const bi = v._beamOf.get(a * 1e7 + b);
   if (bi !== undefined) {
     const g = (v.beam_group || [])[bi];
-    return { text: `보 #${bi + 1}`, group: g };
+    return { text: t('보 #{n}', { n: bi + 1 }), group: g };
   }
-  return { text: `엣지 #${k + 1}`, group: null };
+  return { text: t('엣지 #{n}', { n: k + 1 }), group: null };
 }
 
 function listIds(ids, max = 40) {
   const s = ids.slice(0, max).join(', ');
-  return ids.length > max ? `${s} … 외 ${ids.length - max}개` : s;
+  return ids.length > max ? `${s} … ` + t('외 {n}개', { n: ids.length - max }) : s;
 }
 
 function drawSel() {
@@ -1667,17 +1678,17 @@ function drawSel() {
   const box = el('div', 'pickinfo');
   const nodes = [...SEL.nodes].sort((a, b) => a - b);
   const lines = [];
-  if (nodes.length) lines.push(`절점 ${nodes.length}개: ${listIds(nodes.map((i) => '#' + (i + 1)))}`);
+  if (nodes.length) lines.push(t('절점 {n}개: {v}', { n: nodes.length, v: listIds(nodes.map((i) => '#' + (i + 1))) }));
   if (SEL.edges.size) {
     const labs = [...SEL.edges].sort((a, b) => a - b).map((k) => edgeLabel(v, k));
-    lines.push(`선 ${labs.length}개: ${listIds(labs.map((l) => l.text))}`);
+    lines.push(t('선 {n}개: {v}', { n: labs.length, v: listIds(labs.map((l) => l.text)) }));
     const gs = [...new Set(labs.map((l) => l.group).filter(Boolean))];
-    if (gs.length) lines.push(`그룹 ${gs.join(', ')}`);
+    if (gs.length) lines.push(t('그룹 {v}', { v: gs.join(', ') }));
   }
   if (nodes.length === 1 && !SEL.edges.size) {
     const i = nodes[0];
     const p0 = v.nodes[i];
-    lines.push(`좌표 ${vtxt(p0)}`);
+    lines.push(t('좌표 {v}', { v: vtxt(p0) }));
     if (G.result.visible && R.mesh && i < (R.mesh.nInput || 0)) {
       const f = R.frames.get(`${R.index}|${R.field}`);
       if (f) lines.push(`${R.field} = ${fmt(f.values[i])} · U = [${f.U[i].map(fmt).join(', ')}]`);
@@ -1687,21 +1698,21 @@ function drawSel() {
     const [a, b] = v._edges[[...SEL.edges][0]];
     const pa = v.nodes[a];
     const pb = v.nodes[b];
-    lines.push(`절점 #${a + 1} → #${b + 1}, 길이 ${f3(Math.hypot(...pb.map((c, i) => c - pa[i])))} mm`);
+    lines.push(t('절점 #{a} → #{b}, 길이 {v} mm', { a: a + 1, b: b + 1, v: f3(Math.hypot(...pb.map((c, i) => c - pa[i]))) }));
   }
   for (const t of lines) box.append(el('div', '', t));
-  box.append(el('div', 'selhint', 'Shift+클릭 추가 · Ctrl+클릭 빼기 · Shift+드래그 상자(→ 안쪽만, ← 걸친 것까지) · Esc 해제'));
+  box.append(el('div', 'selhint', t('Shift+클릭 추가 · Ctrl+클릭 빼기 · Shift+드래그 상자(→ 안쪽만, ← 걸친 것까지) · Esc 해제')));
   hud.append(box);
-  const put = el('button', '', '지시문에 넣기');
-  put.title = '지시문에 "선택한 절점" 을 넣습니다. 보낼 때 고른 절점·선이 함께 갑니다';
+  const put = el('button', '', t('지시문에 넣기'));
+  put.title = t('지시문에 "선택한 절점" 을 넣습니다. 보낼 때 고른 절점·선이 함께 갑니다');
   put.onclick = () => {
     const t = $('chatInput');
-    t.value += `${t.value && !t.value.endsWith(' ') ? ' ' : ''}선택한 절점에 `;
+    t.value += `${t.value && !t.value.endsWith(' ') ? ' ' : ''}${tr('선택한 절점에 ')}`;
     t.focus();
   };
-  const cp = el('button', '', '번호 복사');
+  const cp = el('button', '', t('번호 복사'));
   cp.onclick = () => navigator.clipboard && navigator.clipboard.writeText(lines.join('\n'));
-  const cl = el('button', '', '선택 해제');
+  const cl = el('button', '', t('선택 해제'));
   cl.onclick = clearSel;
   hud.append(put, cp, cl);
 }
@@ -1791,7 +1802,7 @@ function drawHighlight() {
     G.symbols.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0xffc857, depthTest: false })));
   }
   const c = [0, 1, 2].map((k) => P.reduce((s, p) => s + p[k], 0) / P.length);
-  const lab = makeLabel(`${highlightId} · 절점 ${P.length}개`, diag * 0.035);
+  const lab = makeLabel(`${highlightId} · ${t('절점 {n}개', { n: P.length })}`, diag * 0.035);
   lab.position.set(c[0], c[1], c[2]);
   lab.center.set(0, -0.6);
   G.symbols.add(lab);
@@ -1800,7 +1811,7 @@ function drawHighlight() {
 function bind() {
   $('loadPreset').onclick = () => openExample(1);
   $('resetAll').onclick = async () => {
-    if (!window.confirm('모델, 조건, 해석 결과, 대화를 모두 지우고 처음 화면으로 돌아갑니다.')) return;
+    if (!window.confirm(t('모델, 조건, 해석 결과, 대화를 모두 지우고 처음 화면으로 돌아갑니다.'))) return;
     await api('/api/reset', { method: 'POST' });
     location.reload();
   };
@@ -1813,9 +1824,9 @@ function bind() {
       const s = await api('/api/upload', { file: { name: f.name, text: await f.text() } });
       lastGeoKey = '';
       $('chatLog').innerHTML = '';
-      chips(['바닥 고정', '1번 절점 고정', '선택한 절점에 아래로 1 N', '해석 실행']);
+      chips(getLang() === 'ko' ? ['바닥 고정', '1번 절점 고정', '선택한 절점에 아래로 1 N', '해석 실행'] : ['fix bottom', 'fix node 1', 'selected nodes 1 N downward', 'run analysis']);
       await refresh(s);
-      note(`${f.name} 을(를) 불러왔습니다. 단위는 mm 로 가정합니다. 절점 번호는 OBJ 순서(1부터)입니다.`);
+      note(t('{f} 을(를) 불러왔습니다. 단위는 mm 로 가정합니다. 절점 번호는 OBJ 순서(1부터)입니다.', { f: f.name }));
     } catch (err) {
       note(err.message, true);
     }
@@ -1845,7 +1856,7 @@ function bind() {
       const s = await api('/api/import/spec', { json: JSON.parse(await f.text()) });
       lastGeoKey = '';
       await refresh(s);
-      note(`${f.name} 을(를) 열었습니다`);
+      note(t('{f} 을(를) 열었습니다', { f: f.name }));
     } catch (err) {
       note(err.message, true);
     }
@@ -1859,28 +1870,28 @@ function bind() {
     }
   };
   $('solve').onclick = async () => {
-    if (!st || !st.model) return note('먼저 지오메트리를 불러오세요', true);
+    if (!st || !st.model) return note(t('먼저 지오메트리를 불러오세요'), true);
     const b = $('solve');
     b.disabled = true;
-    b.textContent = '해석 중…';
+    b.textContent = t('해석 중…');
     $('cancelSolve').hidden = false;
     note('');
-    const tm = (s) => (s >= 3600 ? `${Math.floor(s / 3600)}시간 ${Math.round((s % 3600) / 60)}분` : s >= 60 ? `${Math.floor(s / 60)}분 ${Math.round(s % 60)}초` : `${Math.round(s)}초`);
+    const tm = (s) => (s >= 3600 ? t('{h}시간 {m}분', { h: Math.floor(s / 3600), m: Math.round((s % 3600) / 60) }) : s >= 60 ? t('{m}분 {s}초', { m: Math.floor(s / 60), s: Math.round(s % 60) }) : t('{s}초', { s: Math.round(s) }));
     const poll = setInterval(async () => {
       try {
         const p = await api('/api/progress');
         if (!p.running) return;
         if (p.lam == null) {
-          b.textContent = `해석 중… ${tm(p.elapsed)}`;
-          note(`${p.stage || '해석 준비 중'} · ${tm(p.elapsed)} 경과`);
+          b.textContent = `${t('해석 중…')} ${tm(p.elapsed)}`;
+          note(`${t(p.stage || '해석 준비 중')} · ${t('{v} 경과', { v: tm(p.elapsed) })}`);
           return;
         }
         const pct = (100 * p.lam).toFixed(1);
-        b.textContent = `해석 중… ${pct}%`;
-        const parts = [`진행 ${pct}%`, `증분 ${p.inc}${p.increments ? ` (기본 ${p.increments})` : ''}`];
-        if (p.disp != null) parts.push(`변위 ${p.disp} mm`);
-        parts.push(`${tm(p.elapsed)} 경과`);
-        if (p.eta != null) parts.push(`남은 약 ${tm(p.eta)}`);
+        b.textContent = `${t('해석 중…')} ${pct}%`;
+        const parts = [t('진행 {v}%', { v: pct }), t('증분 {v}', { v: p.inc }) + (p.increments ? t(' (기본 {v})', { v: p.increments }) : '')];
+        if (p.disp != null) parts.push(t('변위 {v} mm', { v: p.disp }));
+        parts.push(t('{v} 경과', { v: tm(p.elapsed) }));
+        if (p.eta != null) parts.push(t('남은 약 {v}', { v: tm(p.eta) }));
         note(parts.join(' · ') + (p.stage ? `\n${p.stage}` : ''));
       } catch (e) {}
     }, 1000);
@@ -1888,14 +1899,14 @@ function bind() {
       const s = await api('/api/solve', { method: 'POST' });
       s.view = st.view;
       await refresh(s);
-      note(`완료 (${s.solve_time}s)`);
+      note(t('완료 ({v}s)', { v: s.solve_time }));
     } catch (e) {
       note(e.message, true);
     }
     clearInterval(poll);
     $('cancelSolve').hidden = true;
     b.disabled = false;
-    b.textContent = '해석 실행';
+    b.textContent = t('해석 실행');
   };
   $('cancelSolve').onclick = () => api('/api/cancel/solve', { method: 'POST' }).catch(() => {});
   $('fit').onclick = fit;
@@ -2057,14 +2068,14 @@ function renderBH() {
   document.querySelectorAll('.bhKin').forEach((r) => (r.hidden = !kin));
   const cnt = {};
   for (const e of BH.edges) cnt[e.type] = (cnt[e.type] || 0) + 1;
-  $('bhCount').textContent = Object.entries(cnt).map(([k, v]) => `${BH_NAME[k] || k} ${v}`).join(' · ');
+  $('bhCount').textContent = Object.entries(cnt).map(([k, v]) => `${t(BH_NAME[k] || k)} ${v}`).join(' · ');
   const sel = [...BH.sel];
   const lines = [];
-  lines.push(sel.length ? `선택 ${sel.length}개: ${sel.slice(0, 12).join(', ')}${sel.length > 12 ? ' …' : ''}` : BH.edit ? '드래그로 엣지를 고르세요 (왼→오 완전 포함, 오→왼 걸침, Shift 추가, Ctrl 제외, Esc 해제)' : '주름 편집 모드를 켜면 상자 선택으로 여러 엣지의 종류를 바꿀 수 있습니다');
+  lines.push(sel.length ? t('선택 {n}개: {v}', { n: sel.length, v: sel.slice(0, 12).map(edgeLab).join(', ') + (sel.length > 12 ? ' …' : '') }) : BH.edit ? t('드래그로 엣지를 고르세요 (왼→오 완전 포함, 오→왼 걸침, Shift 추가, Ctrl 제외, Esc 해제)') : t('주름 편집 모드를 켜면 상자 선택으로 여러 엣지의 종류를 바꿀 수 있습니다'));
   const man = Object.keys(st.spec.creases || {}).length;
-  if (man) lines.push(`직접 지정 ${man}개`);
-  if ((c.drivers || []).length) lines.push(`구동: ${c.drivers.map((d, i) => `${d}${c.targets && c.targets[i] !== undefined ? ' → ' + c.targets[i] + '°' : ''}`).join(', ')}`);
-  if ((c.plot3 || []).length) lines.push(`3D 해공간: ${c.plot3.join(', ')}`);
+  if (man) lines.push(t('직접 지정 {n}개', { n: man }));
+  if ((c.drivers || []).length) lines.push(t('구동: {v}', { v: c.drivers.map((d, i) => `${edgeLab(d)}${c.targets && c.targets[i] !== undefined ? ' → ' + c.targets[i] + '°' : ''}`).join(', ') }));
+  
   if (BH.note) lines.push(BH.note);
   $('bhSel').textContent = lines.join('\n');
   $('bhSel').style.whiteSpace = 'pre-line';
@@ -2072,7 +2083,7 @@ function renderBH() {
 
 function setEdit(on) {
   BH.edit = on;
-  $('bhEdit').textContent = on ? '주름 편집 모드 켬 (Esc 해제)' : '주름 편집 모드 끔';
+  $('bhEdit').textContent = on ? t('주름 편집 모드 켬 (Esc 해제)') : t('주름 편집 모드 끔');
   $('bhEdit').classList.toggle('on', on);
   controls.mouseButtons.LEFT = on ? null : THREE.MOUSE.ROTATE;
   applyVisibility();
@@ -2201,7 +2212,7 @@ function bindBH() {
   document.querySelectorAll('.bhType').forEach((b) => {
     b.onclick = () => {
       const es = [...BH.sel].map((k) => k.split('-').map(Number));
-      if (!es.length) return note('먼저 주름 편집 모드에서 엣지를 선택하세요', true);
+      if (!es.length) return note(t('먼저 주름 편집 모드에서 엣지를 선택하세요'), true);
       ops([{ op: 'set_crease', edges: es, type: b.dataset.t }]);
     };
   });
@@ -2216,17 +2227,17 @@ function bindBH() {
   $('bhCycN').onchange = (e) => setbh({ cycles: Math.max(1, Math.round(bhNum(e.target.value) || 1)) });
   const selFolds = () => [...BH.sel].filter((k) => (BH.edges.find((c) => ekey(c.edge) === k) || {}).type === 'fold');
   const targets = (n) => {
-    const t = $('bhTargets').value.split(/[,\s]+/).filter(Boolean).map(Number);
-    if (t.some((v) => !Number.isFinite(v))) return null;
-    if (t.length === 1 && n > 1) return Array(n).fill(t[0]);
-    return t;
+    const v = $('bhTargets').value.split(/[,\s]+/).filter(Boolean).map(Number);
+    if (v.some((x) => !Number.isFinite(x))) return null;
+    if (v.length === 1 && n > 1) return Array(n).fill(v[0]);
+    return v;
   };
   $('bhDrivers').onclick = () => {
     const d = selFolds();
-    if (!d.length) return note('구동 주름은 접힘(fold) 주름이어야 합니다', true);
-    const t = targets(d.length);
-    if (!t || t.length !== d.length) return note(`목표 이면각을 ${d.length}개 (또는 한 개) 넣어 주세요. 평면은 180°`, true);
-    setbh({ drivers: d, targets: t });
+    if (!d.length) return note(t('구동 주름은 접힘(fold) 주름이어야 합니다'), true);
+    const tg = targets(d.length);
+    if (!tg || tg.length !== d.length) return note(t('목표 이면각을 {n}개 (또는 한 개) 넣어 주세요. 평면은 180°', { n: d.length }), true);
+    setbh({ drivers: d, targets: tg });
   };
   $('bhTargets').onchange = () => {
     const c = st.spec.bh || {};
@@ -2274,19 +2285,19 @@ function renderExtras() {
       const v = c[k];
       if (v === undefined || JSON.stringify(v) === JSON.stringify(d)) continue;
       if (v === null && d === null) continue;
-      let txt = typeof v === 'boolean' ? (k === 'use_mass' ? (v ? '포함' : 'K 만 (질량 없음)') : v ? '켬' : '끔') : typeof v === 'object' && v !== null ? JSON.stringify(v) : `${v}${unit ? ' ' + unit : ''}`;
+      let txt = typeof v === 'boolean' ? (k === 'use_mass' ? (v ? t('포함') : t('K 만 (질량 없음)')) : v ? t('켬') : t('끔')) : typeof v === 'object' && v !== null ? JSON.stringify(v) : `${v}${unit ? ' ' + t(unit) : ''}`;
       items.push([k, d, lab, txt]);
     }
   }
   $('extraPanel').hidden = !items.length;
-  $('extraCount').textContent = items.length ? `${items.length}개` : '';
+  $('extraCount').textContent = items.length ? t('{n}개', { n: items.length }) : '';
   for (const [k, d, lab, txt] of items) {
     const it = el('div', 'item');
     const top = el('div', 'top');
     const nm = el('span');
-    nm.append(document.createTextNode(lab));
+    nm.append(document.createTextNode(t(lab)));
     const x = el('button', 'x', '✕');
-    x.title = '기본값으로 되돌리기';
+    x.title = t('기본값으로 되돌리기');
     x.onclick = () => ops([{ op: 'set_bh', [k]: d }]);
     top.append(nm, x);
     it.append(top, el('div', 'desc', txt));
@@ -2312,7 +2323,7 @@ function textSprite(text, color) {
 function plot3d(k, d) {
   const all = [...(k.paths || []).flat(), ...(k.main || [])];
   if (!all.length) {
-    d.append(el('div', 'perr', `그릴 경로가 없습니다 (기구 자유도 ${k.dof})`));
+    d.append(el('div', 'perr', t('그릴 경로가 없습니다 (기구 자유도 {n})', { n: k.dof })));
     return;
   }
   const lo = [0, 1, 2].map((i) => Math.min(...all.map((p) => p[i])));
@@ -2322,7 +2333,7 @@ function plot3d(k, d) {
   const cv = document.createElement('canvas');
   d.append(cv);
   const lg = el('div', 'legend');
-  lg.innerHTML = `<span><i style="background:#ff6b5e"></i>X ${k.edges[0]}</span><span><i style="background:#7fe07f"></i>Y ${k.edges[1]}</span><span><i style="background:#5ec8ff"></i>Z ${k.edges[2]}</span>${(k.main || []).length > 1 ? `<span><i style="background:#ffd84a"></i>${k.mainName}</span>` : ''}<span><i style="background:#9fb3c8"></i>강체 접힘 경로 (방향 ${(k.paths || []).length}개)</span>`;
+  lg.innerHTML = `<span><i style="background:#ff6b5e"></i>X ${k.edges[0]}</span><span><i style="background:#7fe07f"></i>Y ${k.edges[1]}</span><span><i style="background:#5ec8ff"></i>Z ${k.edges[2]}</span>${(k.main || []).length > 1 ? `<span><i style="background:#ffd84a"></i>${k.mainName}</span>` : ''}<span><i style="background:#9fb3c8"></i>${t('강체 접힘 경로 (방향 {n}개)', { n: (k.paths || []).length })}</span>`;
   d.append(lg);
   for (const n of k.notes || []) d.append(el('div', 'perr', n));
   const w = cv.clientWidth || 420;
@@ -2373,7 +2384,36 @@ function plot3d(k, d) {
   tick();
 }
 
+async function switchLang() {
+  document.documentElement.lang = getLang();
+  applyDom();
+  await api('/api/relabel', { method: 'POST' });
+  await loadExamples();
+  const s = await api('/api/state');
+  if (s.model) await refresh(s, { keepCamera: true });
+  else {
+    st = s;
+    renderControls();
+  }
+  if (R.mesh && st.result) {
+    const fsel = $('field');
+    fsel.innerHTML = '';
+    for (const f of st.result.fields) fsel.append(new Option(t(FIELD_LABEL[f] || f), f));
+    fsel.value = R.field;
+    await showFrame();
+  }
+  if (!$('solve').disabled) $('solve').textContent = t('해석 실행');
+  const o = $('example').selectedOptions[0];
+  if (o && o.dataset.prompts) chips(JSON.parse(o.dataset.prompts));
+  setEdit(BH.edit);
+  llmRefresh(false).catch(() => {});
+}
+
 async function start() {
+  scanDom(document.body);
+  document.documentElement.lang = getLang();
+  if (getLang() !== 'ko') applyDom();
+  onLang(() => switchLang().catch((e) => note(e.message, true)));
   resize();
   bind();
   loop();
@@ -2411,12 +2451,12 @@ function makeLabel(text, size) {
 
 function modelNotes(m) {
   const out = [];
-  if (m.crossings) out.push(`서로 교차하는 선 ${m.crossings}곳에 절점을 넣어 나눔`);
+  if (m.crossings) out.push(t('서로 교차하는 선 {n}곳에 절점을 넣어 나눔', { n: m.crossings }));
   const d = m.dxf;
   if (d) {
-    out.push(`DXF 단위 ${d.units}${d.scale !== 1 ? ` (×${d.scale} → mm)` : ''} · 선 ${d.lines} · 면 ${d.faces}${d.inserts ? ` · 블록 삽입 ${d.inserts}` : ''}`);
+    out.push(t('DXF 단위 {u}', { u: d.units }) + (d.scale !== 1 ? ` (×${d.scale} → mm)` : '') + t(' · 선 {l} · 면 {f}', { l: d.lines, f: d.faces }) + (d.inserts ? t(' · 블록 삽입 {n}', { n: d.inserts }) : ''));
     const sk = Object.entries(d.skipped || {});
-    if (sk.length) out.push(`건너뜀: ${sk.map(([k, v]) => `${k} ${v}`).join(', ')}`);
+    if (sk.length) out.push(t('건너뜀: {v}', { v: sk.map(([k, v]) => `${k} ${v}`).join(', ') }));
   }
   return out.length ? '\n' + out.join('\n') : '';
 }
