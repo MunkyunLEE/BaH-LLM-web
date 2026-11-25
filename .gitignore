@@ -1,0 +1,7 @@
+core/build/
+__pycache__/
+*.pyc
+bar-and-hinge_model/
+*.pdf
+MERLIN2*/
+.DS_Store
