@@ -284,13 +284,14 @@ function edgeName(k) {
 function parseKinematic(c, geo, ctx, info) {
   const ops = [];
   const space = c.has(V.SPACE);
-  const angle = !space && c.has(V.ANGLE) && c.has(V.PLOT);
+  const prot = !space && c.has(V.PLASTROT) && c.has(V.PLOT);
+  const angle = !space && !prot && c.has(V.ANGLE) && c.has(V.PLOT);
   const degRe = new RegExp(NUM + '\\s*(?:도|°|deg(?:rees?)?)', 'g');
   const driveCtx = c.has(V.DRIVE) || (c.has(V.EDGEW) && c.has('(?<![a-z])to\\s*' + NUM.replace('(', '(?:') + '\\s*(?:°|deg)'));
   const degs = driveCtx ? [...c.w.matchAll(degRe)].map((m) => +m[1]) : [];
   const dofOnly = c.has(V.DOF);
   const stiff = c.has(V.STIFFMODE);
-  if (!space && !angle && !degs.length && !dofOnly && !stiff) return null;
+  if (!space && !angle && !prot && !degs.length && !dofOnly && !stiff) return null;
   if (stiff) {
     const m = c.take(NUM + '\\s*(?:개|차|modes?)') || c.take('(?:modes?)\\s*' + NUM);
     c.takeall(V.STIFFMODE);
@@ -320,9 +321,14 @@ function parseKinematic(c, geo, ctx, info) {
     ops.push({ op: 'add_plot', type: 'space3', edges: es.slice(0, 3) });
     return { ops, msgs: [tl('해공간 3차원 그래프 추가: {v}', { v: es.slice(0, 3).map(edgeName).join(', ') }) + (es.length > 3 ? tl(' (앞의 3개만 씀, 선택 {n}개)', { n: es.length }) : '')] };
   }
+  if (prot && !es.length) return { ops, msgs: [tl('상위 주름의 누적 소성 회전 그래프는 소성이 생기면 해석 뒤 자동으로 붙습니다. 특정 주름은 예: \'2-7 주름 누적 소성 회전 그래프\'')] };
   if (!es.length) {
     info.ask = true;
     return { ops, msgs: [tl("어느 주름인지 알려 주세요. 예: '2-7 주름' 또는 주름 편집 모드에서 엣지를 고르고 '선택한 주름 …'")] };
+  }
+  if (prot) {
+    ops.push({ op: 'add_plot', title: tl('누적 소성 회전 {v}', { v: es.map(edgeName).join(', ') }), x: { quantity: 'step' }, series: es.map((k) => ({ quantity: 'peeq', select: { edge: k } })) });
+    return { ops, msgs: [tl('그래프 추가: 주름 {v} 누적 소성 회전', { v: es.map(edgeName).join(', ') })] };
   }
   if (angle) {
     ops.push({ op: 'add_plot', title: tl('이면각 {v}', { v: es.map(edgeName).join(', ') }), x: { quantity: 'step' }, series: es.map((k) => ({ quantity: 'angle', select: { edge: k } })) });

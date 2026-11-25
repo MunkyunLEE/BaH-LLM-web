@@ -87,6 +87,7 @@ export const V = {
   EDGEW: w(['엣지', '주름', '선', '변', '힌지'], ['edges?', 'creases?', 'lines?', 'hinges?']),
   SELECTED: w(['선택(?:한|된|해\\s*둔)', '고른'], ['picked', 'selected', 'chosen']),
   SPACE: w(['해\\s*공간', '3\\s*차원', '삼차원'], ['solution\\s*space', '(?<![a-z])3\\s*-?\\s*d(?![a-z])', 'configuration\\s*space']),
+  PLASTROT: w(['(?:누적\\s*)?소성\\s*회전', '누적\\s*소성', 'peeq'], ['plastic\\s*rotations?', 'accumulated\\s*plastic(?:ity)?', 'peeq']),
   ANGLE: w(['이면각', '각도'], ['(?<![a-z])angles?', 'dihedral']),
   PLOT: w(['그래프', '플롯', '그려', '곡선', '보여', '이력', '변화', '차트'], ['plot', 'graph', 'curve', 'history', 'chart', 'show', 'draw']),
   DRIVE: w(['구동', '돌려', '접어', '펼쳐'], ['drive', 'driver', 'rotate', 'fold\\s+(?:crease|edge)', 'actuate']),

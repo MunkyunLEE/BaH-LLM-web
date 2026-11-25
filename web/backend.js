@@ -614,6 +614,12 @@ function quantity(res, q, sel) {
     if (j < 0) throw new Error(tl('angle: 힌지를 찾지 못했습니다 ({v})', { v: key ? edgeLabel(key) : tl('엣지 없음') }));
     return { name: tl('{e} 이면각 (도)', { e: edgeLabel(key) }), y: hingeAngleSeries(res, j) };
   }
+  if (q === 'peeq') {
+    const key = sel && sel.edge;
+    const j = sel && sel.hinge !== undefined ? sel.hinge : key ? hingeIndex(res, key) : -1;
+    if (j < 0 || res.kind !== 'static') throw new Error(tl('peeq: 힌지를 찾지 못했습니다 ({v})', { v: key ? edgeLabel(key) : tl('엣지 없음') }));
+    return { name: tl('{e} 누적 소성 회전 (도)', { e: hingeName(res, j) }), y: [...Array(res.count).keys()].map((k) => plasticRot(res, k, j)) };
+  }
   if (q === 'step' && res.kind !== 'static') return { name: tl('스텝'), y: [...Array(res.count).keys()] };
   if (res.kind !== 'static') throw new Error(`${q}: ` + tl('이 해석 종류에서는 쓸 수 없는 양입니다'));
   switch (q) {
@@ -675,6 +681,43 @@ function dihedralJS(xj, xk, xi, xl) {
   let th = sg * Math.atan2(Math.hypot(...rkj) * Math.abs(trip), dot(m, n));
   if (th < 0) th += 2 * Math.PI;
   return th;
+}
+
+function hingeName(res, j) {
+  const h = res.model.hinges[j];
+  const nIn = res.model.nInput;
+  if (h.kind !== 'panel' && h.edge && h.edge[0] >= 0) return edgeLabel(edgeKey(h.edge[0], h.edge[1]));
+  const nm = (v) => (v < nIn ? `${v + 1}` : `c${v - nIn + 1}`);
+  return tl('패널 {v}', { v: `${nm(h.n[0])}-${nm(h.n[1])}` });
+}
+
+function barName(res, e) {
+  const nIn = res.model.nInput;
+  const nm = (v) => (v < nIn ? `${v + 1}` : `c${v - nIn + 1}`);
+  const [a, b] = res.model.bars[e];
+  return tl('바 {v}', { v: `${nm(a)}-${nm(b)}` });
+}
+
+function plasticRot(res, k, j) {
+  const nb = res.model.bars.length;
+  return (res.raw[k * res.stride + 2 * res.nd + 3 * res.nn + 2 * nb + j] * 180) / Math.PI;
+}
+
+function plasticTop(res, k, n, want) {
+  const nh = res.model.hinges.length;
+  const out = [];
+  for (let j = 0; j < nh; j++) {
+    if (want && !want(res.model.hinges[j])) continue;
+    const v = plasticRot(res, k, j);
+    if (v > 0) out.push({ j, v });
+  }
+  out.sort((a, b) => b.v - a.v);
+  const hi = out.length ? out[0].v : 0;
+  return out.filter((q) => q.v >= 0.01 * hi).slice(0, n);
+}
+
+function hingeKindName(h) {
+  return h.kind === 'fold' ? tl('접힘') : h.kind === 'panel' ? tl('패널 휨') : tl('휨');
 }
 
 function hingeIndex(res, key) {
@@ -768,6 +811,8 @@ async function plotList() {
     out.push({ id: 'auto_e', auto: true, title: tl('스텝-에너지'), xlabel: tl('스텝'), series: ser.map((s) => ({ name: s.name, x: step, y: s.y })) });
     const f = forceSeries(res);
     out.push({ id: 'auto_f', auto: true, title: tl('스텝-힘'), xlabel: tl('스텝'), series: [{ name: f.name, x: step, y: f.y }] });
+    const top = plasticTop(res, res.count - 1, 5);
+    if (top.length) out.push({ id: 'auto_p', auto: true, title: tl('누적 소성 회전 상위 주름 (도)'), xlabel: tl('스텝'), series: top.map((q) => ({ name: `${hingeName(res, q.j)} · ${hingeKindName(res.model.hinges[q.j])}`, x: step, y: quantity(res, 'peeq', { hinge: q.j }).y })) });
     customPlots(res, out);
   } else if (res.kind === 'modal') {
     const fr = res.result.freq;
@@ -822,6 +867,15 @@ function buildMeta(res) {
     summary[tl('최대 반력/하중 (N)')] = Math.max(...f.y.map(Math.abs));
     summary[tl('바 / 접힘 / 휨 에너지 (N·mm)')] = [result.US[L], result.UF[L], result.UB[L] + result.UE[L]];
     if (result.Wp[L]) summary[tl('소성 소산 (N·mm)')] = result.Wp[L];
+    const ptop = plasticTop(res, L, 5);
+    if (ptop.length) summary[tl('누적 소성 회전 상위 주름 (도)')] = ptop.map((q) => `${hingeName(res, q.j)} ${hingeKindName(res.model.hinges[q.j])} ${q.v.toFixed(1)}°`).join(', ');
+    {
+      const nb = res.model.bars.length;
+      const off = L * stride + 2 * res.nd + 3 * nn + nb;
+      let bm = 0, be = -1;
+      for (let e = 0; e < nb; e++) if (frames[off + e] > bm) (bm = frames[off + e]), (be = e);
+      if (be >= 0) summary[tl('바 PEEQ 최대')] = `${barName(res, be)} ${bm.toPrecision(3)}`;
+    }
     res.values = { umax, fmax: Math.max(...f.y.map(Math.abs)), ffinal: f.y[L], energies: [result.US[L], result.UF[L], result.UB[L] + result.UE[L]], lam: mode === 'force' ? result.lam[L] : undefined };
     const retries = (result.notes || []).filter((q) => q === 'retry' || q === 'reduce_radius').length;
     const st = { completed: '완료', load_reached: '목표 하중 도달', max_increments: '최대 증분 도달', stop_criterion: '정지 조건', no_convergence: '수렴 실패로 중단', radius_underflow: '호장 반경이 너무 작아 중단', contact_blocked: '강제 변위 절점이 접촉에 막혀 중단' }[result.status];
@@ -1022,7 +1076,11 @@ export async function api(path, opts = {}) {
       hi = res._hi[field];
       lo = field === 'barStress' ? -hi : 0;
     }
-    return { U, values: Array.from(vals), edge: edge ? Array.from(edge) : null, edgeSet, min: lo, max: hi, label: res.meta.frames[i], time: res.kind === 'static' ? res.result.s[i] : 0 };
+    let top = null;
+    if (res.kind === 'static' && field.startsWith('peeq') && edge) {
+      top = edge.map((v, q) => ({ q, v })).filter((o) => o.v !== null && o.v > 0 && o.v >= 0.01 * hi).sort((a, b) => b.v - a.v).slice(0, 5).map((o) => ({ q: o.q, v: o.v, name: field === 'peeqBar' ? barName(res, o.q) : hingeName(res, o.q) }));
+    }
+    return { U, values: Array.from(vals), edge: edge ? Array.from(edge) : null, edgeSet, top, min: lo, max: hi, label: res.meta.frames[i], time: res.kind === 'static' ? res.result.s[i] : 0 };
   }
   if (p === '/api/plots') return await plotList();
   if (p === '/api/relabel') {

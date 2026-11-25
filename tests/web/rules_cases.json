@@ -2422,5 +2422,57 @@
   },
   "lang": "en",
   "same": "bc2 삭제"
+ },
+ {
+  "text": "2-9 주름 누적 소성 회전 그래프",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "누적 소성 회전 2-9",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "peeq",
+       "select": {
+        "edge": "1-8"
+       }
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "crease 2-9 plastic rotation plot",
+  "lang": "en",
+  "same": "2-9 주름 누적 소성 회전 그래프",
+  "expect": {
+   "ops": [
+    {
+     "op": "add_plot",
+     "title": "누적 소성 회전 2-9",
+     "x": {
+      "quantity": "step"
+     },
+     "series": [
+      {
+       "quantity": "peeq",
+       "select": {
+        "edge": "1-8"
+       }
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
  }
 ]

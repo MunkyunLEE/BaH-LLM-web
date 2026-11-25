@@ -68,10 +68,14 @@ This method is not from the papers; it is ported from the earlier Python impleme
 - **Bar stress Sx (MERLIN2 Edge):** each bar coloured by its second Piola-Kirchhoff stress Sx, panels in grey, range ±max |Sx| over all steps
 - Extra contours not in MERLIN2: stored energy density, fold / bend / bar energy densities, displacement magnitude and components. The energy density is defined in 3.1.
 - Extra contours when plasticity is on (accumulated like Abaqus PEEQ, they never decrease):
-- **Bar equivalent plastic strain PEEQ:** for each bar the accumulated plastic log strain α_bar = Σ|Δε_p| of the Tang 2026 return mapping. The surface shows the maximum over the bars at each node
+- **Bar equivalent plastic strain PEEQ:** for each bar the accumulated plastic log strain α_bar = Σ|Δε_p| of the Tang 2026 return mapping
 - **Fold crease accumulated plastic rotation (deg):** α_hinge = Σ|Δθ_p| of each fold hinge, drawn on the hinge axis
 - **Bend hinge accumulated plastic rotation (deg):** α_hinge of panel bending hinges and bend edges; other hinges in grey
 - The range is 0 to the maximum over all steps, so stepping through the frames shows plasticity building up. Each frame stores bar stress Sx, α_bar and α_hinge
+- Display: panels stay grey, and a band of width 0.35 (fraction of the triangle height) is drawn from each plastic bar or hinge axis into the adjacent triangles. The band colour is the value and its opacity fades from 1 on the axis to 0 at the outer side. Values below 1% of the all-step maximum are treated as elastic and drawn as grey lines
+- The top 5 creases (or bars) of the current frame get rank / name / value labels, and the result summary lists the top 5 creases at the last step
+- When hinges yield, a default plot "Top creases by accumulated plastic rotation" (α_hinge per step of the top 5 at the last step) is added. A specific crease is added with "crease 2-9 plastic rotation plot" (quantity `peeq`)
+- Examples: 3. Kresling cyclic compression (triangle mesh), 11. Miura 3x3 cyclic compression (quad mesh, N5B8)
 - "Result mesh lines" toggles all model bars (including the N5B8 diagonals).
 
 ### 3.1 Energy density contour (added in this implementation)

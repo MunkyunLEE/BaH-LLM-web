@@ -676,6 +676,35 @@ async function loadResult() {
     G.result.add(bl);
     R.edgeSets[key] = { list, pos, col, geo: g };
   }
+  {
+    const adj = new Map();
+    for (const tr of R.mesh.tris || []) for (let k = 0; k < 3; k++) {
+      const a = tr[k], b = tr[(k + 1) % 3], c = tr[(k + 2) % 3];
+      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+      if (!adj.has(key)) adj.set(key, []);
+      adj.get(key).push(c);
+    }
+    let nq = 0;
+    for (const es of Object.values(R.edgeSets)) {
+      es.adj = es.list.map(([a, b]) => adj.get(a < b ? `${a}-${b}` : `${b}-${a}`) || []);
+      for (const l of es.adj) nq += l.length;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nq * 12), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(nq * 16), 4));
+    const idx = [];
+    for (let q = 0; q < nq; q++) idx.push(4 * q, 4 * q + 1, 4 * q + 2, 4 * q, 4 * q + 2, 4 * q + 3);
+    g.setIndex(idx);
+    g.setDrawRange(0, 0);
+    const bm = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
+    bm.userData.peeqBand = true;
+    bm.renderOrder = 2;
+    G.result.add(bm);
+    R.band = bm;
+    R.peeqLabels = new THREE.Group();
+    R.peeqLabels.userData.peeqLabels = true;
+    G.result.add(R.peeqLabels);
+  }
   R.pos = pos;
   R.col = col;
   buildResultMirror();
@@ -729,17 +758,20 @@ async function showFrame() {
     R.pos[3 * i] = p[0] + R.scale * u[0];
     R.pos[3 * i + 1] = p[1] + R.scale * u[1];
     R.pos[3 * i + 2] = p[2] + R.scale * u[2];
-    if (f.edge && !R.field.startsWith('peeq')) R.col.set([0.62, 0.66, 0.72], 3 * i);
+    if (f.edge) R.col.set(R.field.startsWith('peeq') ? [0.78, 0.8, 0.84] : [0.62, 0.66, 0.72], 3 * i);
     else ramp((f.values[i] - lo) / span, R.col, 3 * i);
   }
   R.edgeMode = f.edge ? f.edgeSet || 'bars' : null;
   const es = R.edgeSets && R.edgeMode ? R.edgeSets[R.edgeMode] : null;
+  const peeq = R.field.startsWith('peeq');
+  const thr = Math.max(1e-12, 0.01 * f.max);
   if (es) {
     es.list.forEach((e, q) => {
       for (let k = 0; k < 2; k++) {
         const v = e[k];
         es.pos.set([R.pos[3 * v], R.pos[3 * v + 1], R.pos[3 * v + 2]], 6 * q + 3 * k);
         if (f.edge[q] === null) es.col.set([0.3, 0.33, 0.38], 6 * q + 3 * k);
+        else if (peeq && f.edge[q] < thr) es.col.set([0.55, 0.58, 0.63], 6 * q + 3 * k);
         else ramp((f.edge[q] - lo) / span, es.col, 6 * q + 3 * k);
       }
     });
@@ -747,6 +779,7 @@ async function showFrame() {
     es.geo.attributes.color.needsUpdate = true;
     es.geo.computeBoundingSphere();
   }
+  drawPeeq(f, es, peeq, thr, lo, span);
   if (R.mid && R.pos2) {
     R.mid.computeVertexNormals();
     const nr = R.mid.attributes.normal.array;
@@ -762,6 +795,7 @@ async function showFrame() {
     }
   }
   for (const o of G.result.children) {
+    if (!o.geometry) continue;
     o.geometry.attributes.position.needsUpdate = true;
     if (o.geometry.attributes.color) o.geometry.attributes.color.needsUpdate = true;
     if (o.isMesh) o.geometry.computeVertexNormals();
@@ -772,11 +806,54 @@ async function showFrame() {
   followSymbols();
   $('frameLabel').textContent = `${R.index + 1}/${st.result.frames.length} · ${f.label}`;
   $('legend').hidden = !$('showResult').checked;
-  $('legendTitle').textContent = t(FIELD_LABEL[R.field] || R.field) + (R.field.endsWith('Density') || R.field.startsWith('bar') || R.field.startsWith('peeq') ? t(' · 전 스텝 최대 기준') : '');
+  $('legendTitle').textContent = t(FIELD_LABEL[R.field] || R.field) + (R.field.endsWith('Density') || R.field.startsWith('bar') || R.field.startsWith('peeq') ? t(' · 전 스텝 최대 기준') : '') + (R.field.startsWith('peeq') ? t(' · 최대의 1% 미만은 회색') : '');
   applyVisibility();
   const ticks = $('legendTicks');
   ticks.innerHTML = '';
   for (let k = 4; k >= 0; k--) ticks.append(el('span', '', fmt(lo + (span * k) / 4)));
+}
+
+function drawPeeq(f, es, peeq, thr, lo, span) {
+  if (!R.band) return;
+  R.peeqLabels.traverse((o) => o.material && o.material.map && o.material.map.dispose());
+  clear(R.peeqLabels);
+  const g = R.band.geometry;
+  let nq = 0;
+  if (peeq && es && es.adj) {
+    const P = g.attributes.position.array, C = g.attributes.color.array;
+    const c3 = [0, 0, 0];
+    const w = 0.35;
+    es.list.forEach(([a, b], q) => {
+      const v = f.edge[q];
+      if (v === null || v < thr) return;
+      ramp((v - lo) / span, c3, 0);
+      const al = 0.25 + 0.65 * Math.min(1, (v - thr) / (f.max - thr || 1));
+      for (const c of es.adj[q]) {
+        for (let k = 0; k < 3; k++) {
+          const pa = R.pos[3 * a + k], pb = R.pos[3 * b + k], pc = R.pos[3 * c + k];
+          P[12 * nq + k] = pa;
+          P[12 * nq + 3 + k] = pb;
+          P[12 * nq + 6 + k] = pb + w * (pc - pb);
+          P[12 * nq + 9 + k] = pa + w * (pc - pa);
+        }
+        for (let m = 0; m < 4; m++) C.set([c3[0], c3[1], c3[2], m < 2 ? al : 0], 16 * nq + 4 * m);
+        nq++;
+      }
+    });
+    g.attributes.position.needsUpdate = true;
+    g.attributes.color.needsUpdate = true;
+    g.computeBoundingSphere();
+    const sz = diag * 0.032;
+    (f.top || []).forEach((o, r) => {
+      const [a, b] = es.list[o.q];
+      const unit = R.field === 'peeqBar' ? '' : '°';
+      const sp = makeLabel(`${r + 1}. ${o.name} ${o.v.toPrecision(3)}${unit}`, sz);
+      sp.position.set((R.pos[3 * a] + R.pos[3 * b]) / 2, (R.pos[3 * a + 1] + R.pos[3 * b + 1]) / 2, (R.pos[3 * a + 2] + R.pos[3 * b + 2]) / 2);
+      sp.center.set(0, 0);
+      R.peeqLabels.add(sp);
+    });
+  }
+  g.setDrawRange(0, nq * 6);
 }
 
 function snapshot(maxW) {
@@ -2503,7 +2580,7 @@ function buildResultMirror() {
   for (const c of [...G.result.children]) if (c.userData.mirror) G.result.remove(c);
   const sy = symList();
   if (!sy.length) return;
-  const base = G.result.children.filter((c) => !c.userData.mirror);
+  const base = G.result.children.filter((c) => !c.userData.mirror && c.geometry);
   for (const s of sy)
     for (const o of base) {
       const m = o.isMesh ? new THREE.Mesh(o.geometry, o.material) : new THREE.LineSegments(o.geometry, o.material);

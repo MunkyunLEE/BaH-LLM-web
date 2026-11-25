@@ -242,6 +242,23 @@ P["flap_contact"] = {
     ],
 }
 
+
+P["miura_plastic"] = {
+    "title": "11. 미우라 3x3 반복 압축 (4변형 메쉬, 소성 힌지 PEEQ)",
+    "file": "miura_3x3.obj",
+    "note": "4변형 패널(N5B8) 미우라를 x 방향으로 -15 mm 접었다 되돌리기 2회. 알루미늄 두께 0.3, 접힘·휨 힌지 탄소성 (길이당 항복 모멘트 0.05 N·mm/mm, 경화 0.05). 컨투어 '접힘 주름 누적 소성 회전' 으로 소성이 쌓이는 주름을 봅니다.",
+    "prompts": ["해석 실행", "2-9 주름 누적 소성 회전 그래프", "1번 점 변위-힘 그래프"],
+    "ops": [
+        {"op": "set_material", "E": 70000, "nu": 0.33, "thickness": 0.3, "yield": 250},
+        {"op": "set_bh", "plastic_hinge": True, "fold_yield": 0.3, "fold_H": 0.1, "cycles": 2},
+        {"op": "add_bc", "select": {"plane": {"axis": "x", "at": "min"}}, "dofs": [1], "name": "x 최소 변 x 구속"},
+        {"op": "add_bc", "select": {"nodes": [0]}, "type": "fixed", "name": "기준점 고정"},
+        {"op": "add_bc", "select": {"nodes": [6]}, "dofs": [3], "name": "z 구속"},
+        {"op": "add_bc", "select": {"plane": {"axis": "x", "at": "max"}}, "dofs": [1], "value": -15.0, "name": "강제 변위"},
+        {"op": "set_step", "type": "static", "increments": 80},
+    ],
+}
+
 EN = {
     "miura_fold": ("1. Miura 3x3 folding (prescribed displacement, N5B8 auto stiffness)",
                    "x min edge constrained in x, one node fully fixed, x max edge pushed -15 mm in x to fold. MERLIN2 displacement loading (damped Newton).",
@@ -252,6 +269,9 @@ EN = {
     "kresling_cycle": ("3. Single Kresling, cyclic compression (plastic hinges, Tang 2026)",
                        "Bottom ring fixed, top ring pushed -12 mm in z and returned, 3 cycles. Aluminum, thickness 0.3, elasto-plastic fold hinges (yield moment 0.05 N·mm/mm per length, hardening 0.05, calibrated along creases as in Tang 2026).",
                        ["run", "energy plot", "node 7 force-displacement plot"]),
+    "miura_plastic": ("11. Miura 3x3 cyclic compression (quad mesh, plastic hinges, PEEQ)",
+                      "Quad-panel (N5B8) Miura folded by -15 mm in x and returned, 2 cycles. Aluminum, thickness 0.3, elasto-plastic fold and bend hinges (yield moment 0.05 N·mm/mm per length, hardening 0.05). Use the contour 'Fold crease accumulated plastic rotation' to see where plasticity builds up.",
+                      ["run", "crease 2-9 plastic rotation plot", "node 1 force-displacement plot"]),
     "simple_fold": ("4. Single crease fold (geometry of Tang 2026 Fig. 4)",
                     "Triangle ABC fixed, point D lifted in z to fold crease AB. Aluminum, plastic hinge.",
                     ["node 4 force-displacement plot", "run"]),
