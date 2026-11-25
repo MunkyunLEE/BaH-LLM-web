@@ -316,6 +316,11 @@ void packFrames(Session& S) {
         int nb = (int)m.bars.size();
         if (f.Sx.size() == nb) S.frames.insert(S.frames.end(), f.Sx.data(), f.Sx.data() + nb);
         else S.frames.insert(S.frames.end(), nb, 0.0);
+        int nh = (int)m.hinges.size();
+        if (f.Ab.size() == nb) S.frames.insert(S.frames.end(), f.Ab.data(), f.Ab.data() + nb);
+        else S.frames.insert(S.frames.end(), nb, 0.0);
+        if (f.Ah.size() == nh) S.frames.insert(S.frames.end(), f.Ah.data(), f.Ah.data() + nh);
+        else S.frames.insert(S.frames.end(), nh, 0.0);
     }
 }
 
@@ -396,7 +401,8 @@ const char* bh_result(int h) {
     j["notes"] = S->A.notes;
     j["nd"] = S->A.m.ndof();
     j["nn"] = (int)S->A.m.X.rows();
-    j["stride"] = 2 * S->A.m.ndof() + 3 * (int)S->A.m.X.rows() + (int)S->A.m.bars.size();
+    j["stride"] = 2 * S->A.m.ndof() + 3 * (int)S->A.m.X.rows() + 2 * (int)S->A.m.bars.size() + (int)S->A.m.hinges.size();
+    j["nh"] = (int)S->A.m.hinges.size();
     j["nb"] = (int)S->A.m.bars.size();
     j["F"] = std::vector<double>(S->A.F.data(), S->A.F.data() + S->A.F.size());
     j["Ubar"] = std::vector<double>(S->A.Ubar.data(), S->A.Ubar.data() + S->A.Ubar.size());

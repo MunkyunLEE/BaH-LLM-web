@@ -523,7 +523,23 @@ function fieldValues(res, i, field) {
   for (let k = 0; k < n; k++) U.push([f[3 * k], f[3 * k + 1], f[3 * k + 2]]);
   if (field === 'U') for (let k = 0; k < n; k++) vals[k] = Math.hypot(...U[k]);
   else if (field === 'ux' || field === 'uy' || field === 'uz') for (let k = 0; k < n; k++) vals[k] = U[k]['xyz'.indexOf(field[1])];
-  else if (res.kind === 'static' && (field === 'barForce' || field === 'barStress')) {
+  else if (res.kind === 'static' && field.startsWith('peeq')) {
+    const nb = model.bars.length;
+    const off = 2 * nd + 3 * nn + nb;
+    let edge;
+    if (field === 'peeqBar') {
+      edge = Array.from(f.subarray(off, off + nb));
+      for (let e = 0; e < nb; e++) for (const k of model.bars[e]) vals[k] = Math.max(vals[k], edge[e]);
+    } else {
+      const want = field === 'peeqFold' ? (h) => h.kind === 'fold' : (h) => h.kind !== 'fold';
+      edge = model.hinges.map((h, i) => (want(h) ? (f[off + nb + i] * 180) / Math.PI : null));
+      model.hinges.forEach((h, i) => {
+        if (edge[i] === null) return;
+        for (const k of [h.n[0], h.n[1]]) vals[k] = Math.max(vals[k], edge[i]);
+      });
+    }
+    return { U, vals, edge, edgeSet: field === 'peeqBar' ? 'bars' : 'hinges' };
+  } else if (res.kind === 'static' && (field === 'barForce' || field === 'barStress')) {
     const off = 2 * nd + 3 * nn;
     const bars = model.bars;
     const A = model.A;
@@ -539,7 +555,7 @@ function fieldValues(res, i, field) {
       }
     }
     if (field === 'barStress') for (let k = 0; k < n; k++) vals[k] /= cnt[k] || 1;
-    return { U, vals, edge: field === 'barStress' ? edge : null };
+    return { U, vals, edge: field === 'barStress' ? edge : null, edgeSet: 'bars' };
   } else if (res.kind === 'static') {
     const off = 2 * nd;
     for (let k = 0; k < n; k++) {
@@ -780,6 +796,17 @@ function buildMeta(res) {
     else labels.push(tl('경로 {i}', { i }));
   }
   const fields = kind === 'static' ? ['barForce', 'barStress', 'energyDensity', 'foldDensity', 'bendDensity', 'stretchDensity', 'U', 'ux', 'uy', 'uz'] : ['U', 'ux', 'uy', 'uz'];
+  if (kind === 'static') {
+    const nb = res.model.bars.length, nh = res.model.hinges.length;
+    const last = frames.subarray((count - 1) * stride + stride - 2 * nb - nh + nb, count * stride);
+    const ms = S.spec.materials.default, b = S.spec.bh;
+    const barPl = !!ms.yield || last.subarray(0, nb).some((v) => v > 0);
+    const hingePl = !!b.plastic_hinge || b.fold_yield != null || b.bend_yield != null || last.subarray(nb).some((v) => v > 0);
+    const pf = [];
+    if (barPl) pf.push('peeqBar');
+    if (hingePl) pf.push('peeqFold', 'peeqBend');
+    fields.splice(2, 0, ...pf);
+  }
   const summary = {};
   const notes = [];
   if (kind === 'static') {
@@ -970,32 +997,32 @@ export async function api(path, opts = {}) {
       fe.set(edgeKey(a, b), [a, b]);
     }
     const bars = m.bars && m.bars.length ? m.bars.map((b) => [b[0], b[1]]) : [...fe.values()];
-    return { nodes: m.nodes, tris: m.tris, lines: [], fedges: bars, nInput: S.geo.nodes.length, orig: m.orig };
+    return { nodes: m.nodes, tris: m.tris, lines: [], fedges: bars, hedges: (m.hinges || []).map((h) => [h.n[0], h.n[1]]), nInput: S.geo.nodes.length, orig: m.orig };
   }
   if (p === '/api/result/frame') {
     const res = S.result;
     const i = +q.get('i');
     const field = q.get('field');
-    const { U, vals, edge } = fieldValues(res, i, field);
+    const { U, vals, edge, edgeSet } = fieldValues(res, i, field);
     let lo = Infinity, hi = -Infinity;
     for (const v of vals) {
       lo = Math.min(lo, v);
       hi = Math.max(hi, v);
     }
-    if (res.kind === 'static' && (field.endsWith('Density') || field === 'barForce' || field === 'barStress')) {
+    if (res.kind === 'static' && (field.endsWith('Density') || field.startsWith('bar') || field.startsWith('peeq'))) {
       res._hi = res._hi || {};
       if (res._hi[field] === undefined) {
         let h = 0;
         for (let k = 0; k < res.count; k++) {
           const fv = fieldValues(res, k, field);
-          for (const v of fv.edge || fv.vals) h = Math.max(h, Math.abs(v));
+          for (const v of fv.edge || fv.vals) if (v !== null) h = Math.max(h, Math.abs(v));
         }
         res._hi[field] = h;
       }
       hi = res._hi[field];
       lo = field === 'barStress' ? -hi : 0;
     }
-    return { U, values: Array.from(vals), edge: edge ? Array.from(edge) : null, min: lo, max: hi, label: res.meta.frames[i], time: res.kind === 'static' ? res.result.s[i] : 0 };
+    return { U, values: Array.from(vals), edge: edge ? Array.from(edge) : null, edgeSet, min: lo, max: hi, label: res.meta.frames[i], time: res.kind === 'static' ? res.result.s[i] : 0 };
   }
   if (p === '/api/plots') return await plotList();
   if (p === '/api/relabel') {

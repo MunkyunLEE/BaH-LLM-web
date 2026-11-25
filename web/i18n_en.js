@@ -512,4 +512,7 @@ export const EN = {
   '기준점 고정': 'Reference node fixed',
   'z 구속': 'z constrained',
   '바닥 판 고정': 'Base plate fixed',
+  '바 누적 소성 변형률 PEEQ (로그 변형률)': 'Bar equivalent plastic strain PEEQ (log strain)',
+  '접힘 주름 누적 소성 회전 (도)': 'Fold crease accumulated plastic rotation (deg)',
+  '휨 힌지 누적 소성 회전 (패널 휨 + 휨 엣지, 도)': 'Bend hinge accumulated plastic rotation (panel bending + bend edges, deg)',
 };

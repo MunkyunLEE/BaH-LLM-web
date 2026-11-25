@@ -189,6 +189,8 @@ Frame Analysis::record(const VecX& Uc, double lam, double s, int iters) {
     }
     fr.Wp = st.wpBar + st.wpHinge + o.dWp.sum();
     fr.Sx = o.Sx;
+    fr.Ab = o.newAb;
+    fr.Ah = o.newAh;
     int nn = (int)m.X.rows();
     fr.Eb = VecX::Zero(nn);
     fr.Ef = VecX::Zero(nn);

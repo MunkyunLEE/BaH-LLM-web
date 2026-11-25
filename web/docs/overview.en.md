@@ -67,6 +67,11 @@ This method is not from the papers; it is ported from the earlier Python impleme
 - **Sum of bar forces (MERLIN2 Vertex, default):** at each node the sum of |Sx·A| of the connected bars (N), scaled to the maximum over all steps
 - **Bar stress Sx (MERLIN2 Edge):** each bar coloured by its second Piola-Kirchhoff stress Sx, panels in grey, range ±max |Sx| over all steps
 - Extra contours not in MERLIN2: stored energy density, fold / bend / bar energy densities, displacement magnitude and components. The energy density is defined in 3.1.
+- Extra contours when plasticity is on (accumulated like Abaqus PEEQ, they never decrease):
+- **Bar equivalent plastic strain PEEQ:** for each bar the accumulated plastic log strain α_bar = Σ|Δε_p| of the Tang 2026 return mapping. The surface shows the maximum over the bars at each node
+- **Fold crease accumulated plastic rotation (deg):** α_hinge = Σ|Δθ_p| of each fold hinge, drawn on the hinge axis
+- **Bend hinge accumulated plastic rotation (deg):** α_hinge of panel bending hinges and bend edges; other hinges in grey
+- The range is 0 to the maximum over all steps, so stepping through the frames shows plasticity building up. Each frame stores bar stress Sx, α_bar and α_hinge
 - "Result mesh lines" toggles all model bars (including the N5B8 diagonals).
 
 ### 3.1 Energy density contour (added in this implementation)

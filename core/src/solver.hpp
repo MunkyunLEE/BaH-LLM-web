@@ -41,7 +41,7 @@ struct Frame {
     double US = 0, UF = 0, UB = 0, UE = 0, Wp = 0, Uc = 0, Wext = 0;
     int iters = 0, contactPairs = 0;
     double minDist = INF;
-    VecX Fimp, Eb, Ef, Ebd, Sx;
+    VecX Fimp, Eb, Ef, Ebd, Sx, Ab, Ah;
 };
 
 struct Analysis {
