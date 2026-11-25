@@ -85,6 +85,13 @@ struct Analysis {
     void stepDisp();
     std::string modal(std::vector<double>& eig, std::vector<VecX>& shapes, int& rigid);
     std::string kinematics(int& mech, int& selfStress, int& rank, std::vector<VecX>& path, std::vector<VecX>& angles);
+    VecX hingeAngles(const VecX& x) const;
+    std::vector<int> kinFree() const;
+    void dofInfo(int& constraints, int& freeDofs, int& rank, int& mech, int& selfStress) const;
+    void nullModes(std::vector<VecX>& modes, MatX& rates, std::vector<int>& foldIdx) const;
+    void foldPath(const std::vector<int>& drv, const VecX& targets, int steps, std::vector<VecX>& xs, std::vector<VecX>& angles, std::vector<double>& err) const;
+    int solutionSpace(const std::vector<int>& hid, int ndir, double amp, int steps, std::vector<std::vector<Vec3>>& paths) const;
+    int hingeOfEdge(int a, int b) const;
 };
 
 VecX solveLinear(const SpMat& K, const std::vector<int>& free, const MatX& rhs, MatX& out);

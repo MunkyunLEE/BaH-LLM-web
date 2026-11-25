@@ -208,6 +208,15 @@ export function applyOps(spec0, ops, geo) {
       for (const f of ['imperfection', 'lambda0', 'lam_max']) if (f in op) st[f] = op[f] === null ? null : num(op[f], f);
       if ('stop' in op) st.stop = op.stop;
       log.push('해석 설정');
+    } else if (k === 'add_plot' && (op.type === 'space3' || op.type === '3d')) {
+      const keys = (op.edges || []).map((e) => (typeof e === 'string' ? e : edgeKey(+e[0], +e[1])));
+      const known = new Set(panelEdges(g).keys());
+      const bad = keys.filter((q) => !known.has(q));
+      if (keys.length !== 3) throw new Error('해공간 그래프에는 주름 3개가 필요합니다');
+      if (bad.length) throw new Error(`없는 엣지: ${bad.map(edgeLabel).join(', ')}`);
+      const item = { id: nextId(spec.plots, 'pl'), type: 'space3', title: op.title || `해공간 ${keys.map(edgeLabel).join(' · ')}`, edges: keys };
+      spec.plots.push(item);
+      log.push(`그래프 추가 ${item.id}`);
     } else if (k === 'add_plot') {
       const item = { id: nextId(spec.plots, 'pl'), title: op.title || '그래프', x: op.x || { quantity: 'step' }, series: op.series || [] };
       if (!item.series.length) throw new Error('그래프에 series 가 없습니다');
@@ -315,7 +324,7 @@ export function warnings(spec, geo) {
   for (const s of spec.symmetry) fixed.add(AXN[s.axis] + 1);
   const st = spec.step.type;
   if (st === 'kinematic') {
-    if (!(spec.bh.drivers || []).length) out.push('기구 해석: 구동 주름이 없어 자유도 수만 계산합니다 (주름 편집 모드에서 접힘 주름을 고르고 "구동 주름 지정")');
+    if (!(spec.bh.drivers || []).length) out.push('기구 해석: 구동 주름이 없어 자유도와 기구 모드만 계산합니다 (경로를 보려면 "2-7 주름을 120도까지 구동"처럼 지정)');
     return out;
   }
   if (!spec.bcs.length && !spec.symmetry.length && st !== 'modal') out.push('구속이 없습니다 (강체 운동 가능)');
@@ -562,9 +571,17 @@ function forceSeries(res) {
 function quantity(res, q, sel) {
   const r = res.result;
   const { raw, stride, nd } = res;
-  const n = r.lam.length;
+  const n = r.lam ? r.lam.length : res.count;
   const E = (k) => r[k];
   const tot = () => r.US.map((_, i) => r.US[i] + r.UF[i] + r.UB[i] + r.UE[i]);
+  if (q === 'angle') {
+    const key = sel && sel.edge;
+    const j = key ? hingeIndex(res, key) : -1;
+    if (j < 0) throw new Error(`angle: 힌지를 찾지 못했습니다 (${key ? edgeLabel(key) : '엣지 없음'})`);
+    return { name: `${edgeLabel(key)} 이면각 (도)`, y: hingeAngleSeries(res, j) };
+  }
+  if (q === 'step' && res.kind !== 'static') return { name: '스텝', y: [...Array(res.count).keys()] };
+  if (res.kind !== 'static') throw new Error(`${q}: 이 해석 종류에서는 쓸 수 없는 양입니다`);
   switch (q) {
     case 'step': return { name: '스텝', y: [...Array(n).keys()] };
     case 'lam': return { name: '하중 계수 λ', y: r.lam };
@@ -608,9 +625,105 @@ function quantity(res, q, sel) {
   throw new Error(`알 수 없는 양: ${q}`);
 }
 
-function plotList() {
+export function edgeLabel(k) {
+  const [a, b] = String(k).split('-').map(Number);
+  return `${a + 1}-${b + 1}`;
+}
+
+function dihedralJS(xj, xk, xi, xl) {
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const rkj = sub(xk, xj), rij = sub(xi, xj), rkl = sub(xk, xl);
+  const m = crs(rij, rkj), n = crs(rkj, rkl);
+  const trip = dot(n, rij);
+  const sg = Math.abs(trip) > 1e-8 ? Math.sign(trip) : 1;
+  let th = sg * Math.atan2(Math.hypot(...rkj) * Math.abs(trip), dot(m, n));
+  if (th < 0) th += 2 * Math.PI;
+  return th;
+}
+
+function hingeIndex(res, key) {
+  return res.model.hinges.findIndex((h) => edgeKey(h.edge[0], h.edge[1]) === key);
+}
+
+function hingeAngleSeries(res, j) {
+  if (res.kind === 'kinematic' && !res.result.mechModes) return res.result.angles.map((a) => (a[j] * 180) / Math.PI);
+  if (res.kind !== 'static') return [];
+  const h = res.model.hinges[j];
+  const X = res.model.nodes;
+  const out = [];
+  for (let k = 0; k < res.count; k++) {
+    const P = (i) => [0, 1, 2].map((c) => X[i][c] + res.raw[k * res.stride + 3 * i + c]);
+    let xl = P(h.n[3]);
+    if (h.ghost >= 0) {
+      xl = P(h.n[2]);
+      const c = S.spec.symmetry.find((q) => 'xyz'.indexOf(q.axis) === h.ghost);
+      if (c) xl[h.ghost] = 2 * c.at - xl[h.ghost];
+    }
+    out.push((dihedralJS(P(h.n[0]), P(h.n[1]), P(h.n[2]), xl) * 180) / Math.PI);
+  }
+  return out;
+}
+
+function spaceInputs(spec) {
+  return spec.plots.filter((p) => p.type === 'space3').map((p) => ({ key: p.edges.join(','), edges: p.edges.map((k) => k.split('-').map(Number)), ndir: 24, steps: 60 }));
+}
+
+async function ensureSpaces(res) {
+  res.spaces = res.spaces || {};
+  const miss = spaceInputs(S.spec).filter((q) => !res.spaces[q.key]);
+  if (!miss.length) return;
+  const input = coreInput(S.spec, S.geo);
+  input.spaces = miss;
+  const d = await runWorker('space', input);
+  miss.forEach((q, i) => (res.spaces[q.key] = d.result.spaces[i]));
+}
+
+function space3(res, p) {
+  const sp = (res.spaces || {})[p.edges.join(',')];
+  const labels = p.edges.map(edgeLabel);
+  if (!sp) return { id: p.id, title: p.title, type: '3d', error: '해공간을 계산하지 못했습니다', series: [] };
+  const deg = (v) => (v * 180) / Math.PI;
+  const paths = sp.paths.map((path) => path.map((q) => q.map(deg)));
+  const idx = p.edges.map((k) => hingeIndex(res, k));
+  let main = [];
+  if (idx.every((j) => j >= 0)) {
+    const ser = idx.map((j) => hingeAngleSeries(res, j));
+    if (ser[0].length > 1) main = ser[0].map((_, k) => ser.map((q) => q[k]));
+  }
+  const notes = [];
+  if (sp.missing.length) notes.push(`힌지가 아닌 엣지: ${sp.missing.map((e) => edgeLabel(edgeKey(e[0], e[1]))).join(', ')}`);
+  return { id: p.id, title: p.title, type: '3d', edges: labels, dof: sp.dof, paths, main, mainName: res.kind === 'kinematic' ? '기구 해석 경로' : '해석 경로', notes, series: [] };
+}
+
+function customPlots(res, out) {
+  for (const p of S.spec.plots) {
+    if (p.type === 'space3') {
+      out.push(space3(res, p));
+      continue;
+    }
+    try {
+      const xs = quantity(res, p.x.quantity, p.x.select);
+      const series = p.series.map((s) => {
+        const q = quantity(res, s.quantity, s.select);
+        return { name: s.name || q.name, x: xs.y, y: q.y };
+      });
+      out.push({ id: p.id, title: p.title, xlabel: xs.name, series });
+    } catch (e) {
+      out.push({ id: p.id, title: p.title, error: e.message, series: [] });
+    }
+  }
+}
+
+async function plotList() {
   const res = S.result;
   if (!res) return [];
+  if (S.spec.plots.some((p) => p.type === 'space3')) {
+    try {
+      await ensureSpaces(res);
+    } catch (e) {}
+  }
   const out = [];
   if (res.kind === 'static') {
     const { step } = staticSeries(res);
@@ -621,18 +734,7 @@ function plotList() {
     out.push({ id: 'auto_e', auto: true, title: '스텝-에너지', xlabel: '스텝', series: ser.map((s) => ({ name: s.name, x: step, y: s.y })) });
     const f = forceSeries(res);
     out.push({ id: 'auto_f', auto: true, title: '스텝-힘', xlabel: '스텝', series: [{ name: f.name, x: step, y: f.y }] });
-    for (const p of S.spec.plots) {
-      try {
-        const xs = quantity(res, p.x.quantity, p.x.select);
-        const series = p.series.map((s) => {
-          const q = quantity(res, s.quantity, s.select);
-          return { name: s.name || q.name, x: xs.y, y: q.y };
-        });
-        out.push({ id: p.id, title: p.title, xlabel: xs.name, series });
-      } catch (e) {
-        out.push({ id: p.id, title: p.title, error: e.message, series: [] });
-      }
-    }
+    customPlots(res, out);
   } else if (res.kind === 'modal') {
     const fr = res.result.freq;
     out.push({ id: 'auto_m', auto: true, title: res.result.useMass ? '고유진동수 (Hz)' : '강성 고유값', xlabel: '모드', series: [{ name: res.result.useMass ? '진동수 (Hz)' : '고유값', x: fr.map((_, i) => i + 1), y: res.result.useMass ? fr : res.result.eig }] });
@@ -640,8 +742,10 @@ function plotList() {
     const A = res.result.angles;
     const drv = (S.spec.bh.drivers || []);
     const idx = drv.map((k) => res.model.hinges.findIndex((h) => edgeKey(h.edge[0], h.edge[1]) === k));
-    if (A && A.length && idx.length) out.push({ id: 'auto_k', auto: true, title: '구동 주름 이면각 (도)', xlabel: '스텝', series: idx.map((j, q) => ({ name: drv[q], x: A.map((_, i) => i), y: A.map((a) => (a[j] * 180) / Math.PI) })) });
+    if (A && A.length > 1 && idx.length && !res.result.mechModes) out.push({ id: 'auto_k', auto: true, title: '구동 주름 이면각 (도)', xlabel: '스텝', series: idx.map((j, q) => ({ name: edgeLabel(drv[q]), x: A.map((_, i) => i), y: A.map((a) => (a[j] * 180) / Math.PI) })) });
+    customPlots(res, out);
   }
+  if (res.kind === 'modal') customPlots(res, out);
   return out;
 }
 
@@ -659,7 +763,8 @@ function buildResult(kind, mode, model, result, frames, elapsed) {
       const sv = result.s[i];
       labels.push(mode === 'force' ? `스텝 ${i} · λ=${(+result.lam[i]).toPrecision(4)}` : legs > 1 ? `스텝 ${i} · 구간 ${Math.min(legs, Math.floor(sv) + (sv % 1 > 0 ? 1 : 0)) || 1}/${legs}` : `스텝 ${i} · 진행 ${(100 * sv).toFixed(1)}%`);
     }
-    else if (kind === 'modal') labels.push(`모드 ${i + 1}${result.freq ? ` · ${(+result.freq[i]).toPrecision(4)} Hz` : ''}`);
+    else if (kind === 'modal') labels.push(`모드 ${i + 1}${result.useMass ? ` · ${(+result.freq[i]).toPrecision(4)} Hz` : ` · λ=${(+result.eig[i]).toPrecision(4)}`}`);
+    else if (result.mechModes) labels.push(`기구 모드 ${i + 1}`);
     else labels.push(`경로 ${i}`);
   }
   const fields = kind === 'static' ? ['energyDensity', 'foldDensity', 'bendDensity', 'stretchDensity', 'U', 'ux', 'uy', 'uz'] : ['U', 'ux', 'uy', 'uz'];
@@ -686,12 +791,18 @@ function buildResult(kind, mode, model, result, frames, elapsed) {
     summary['참고'] = [result.useMass ? '질량 포함 고유진동수 (집중 질량: 패널 질량을 꼭짓점과 중심점에 균등 분배)' : 'K 만의 고유값'];
     if (S.spec.symmetry.length) summary['참고'].push('대칭 조건이 있어 대칭 모드만 나옵니다');
   } else {
-    summary['기구 자유도'] = result.mechanisms;
-    summary['자기 응력 상태'] = result.selfStress;
     summary['참고'] = ['강체 패널 가정 (패널 휨 힌지를 구속으로 둠)'];
-    if (result.error) summary['참고'].push(result.error === 'driver_not_found' ? '구동 주름을 찾지 못했습니다' : result.error);
+    if (result.mechModes) summary['참고'].push(`구동 주름이 없어 기구 모드(구속 야코비안의 영공간) ${result.mechModes}개를 보여 줍니다`);
+    if (result.error) summary['참고'].push({ driver_not_found: '구동 주름을 찾지 못했습니다', path_incompatible: '구동 목표까지 강체 접힘 경로가 이어지지 않아 중간에 멈췄습니다' }[result.error] || result.error);
   }
-  res.meta = { kind, solver: 'bh', frames: labels, fields, summary, mode, nInput: S.geo.nodes.length };
+  if (result.dof) {
+    const d = result.dof;
+    summary['기구 자유도 (강체 패널)'] = d.mechanisms;
+    summary['자기 응력 상태'] = d.selfStress;
+    summary['구속식 / 자유 자유도 / 계수'] = [d.constraints, d.freeDofs, d.rank];
+  }
+  if (kind === 'modal' && result.dof && result.dof.rigidRemoved === 0 && !result.useMass) summary['참고'].push('K 의 0 고유값 수 = 강체 모드 + 기구 모드 (패널 휨·접힘 강성이 있으면 기구 모드는 작은 양수 고유값)');
+  res.meta = { kind, solver: 'bh', frames: labels, fields, summary, mode, nInput: S.geo.nodes.length, mechModes: result.mechModes || 0 };
   return res;
 }
 
@@ -784,9 +895,12 @@ export async function api(path, opts = {}) {
     need();
     const input = coreInput(S.spec, S.geo);
     const kind = input.analysis.type === 'modal' ? 'modal' : input.analysis.type === 'kinematic' ? 'kinematic' : 'static';
+    input.spaces = spaceInputs(S.spec);
     const d = await runWorker(kind, input);
     if (kind === 'modal') d.result.useMass = input.analysis.useMass;
     S.result = buildResult(kind, input.analysis.type, d.model, d.result, d.frames, d.elapsed);
+    S.result.spaces = {};
+    input.spaces.forEach((q, i) => (S.result.spaces[q.key] = d.result.spaces[i]));
     S.stale = false;
     S.solveTime = +d.elapsed.toFixed(2);
     return state();
@@ -852,7 +966,7 @@ export async function api(path, opts = {}) {
     }
     return { U, values: Array.from(vals), min: lo, max: hi, label: res.meta.frames[i], time: res.kind === 'static' ? res.result.s[i] : 0 };
   }
-  if (p === '/api/plots') return plotList();
+  if (p === '/api/plots') return await plotList();
   if (p === '/api/llm') {
     if (body) S.llm = llm.saveConfig({ ...S.llm, ...body });
     return { llm: llm.publicConfig(S.llm), status: await llm.status(S.llm) };
@@ -915,7 +1029,7 @@ async function chat(text, sel) {
   if (!text) throw new Error('내용이 비어 있습니다');
   const cfg = S.llm;
   const picked = sel && ((sel.points && sel.points.length) || (sel.segments && sel.segments.length)) ? sel : null;
-  const ctx = { result: S.result, plots: S.result ? plotList() : [], creaseSel: sel && sel.creases };
+  const ctx = { result: S.result, creaseSel: sel && sel.creases };
   const rr = rules.parse(text, S.geo, S.spec, picked, ctx);
   let ruleOk = rr.info.complete;
   if (ruleOk && rr.ops.length) {

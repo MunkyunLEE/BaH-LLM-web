@@ -12,7 +12,10 @@ self.onmessage = async (e) => {
     self.postMessage({ type: 'model', model });
     let result = null;
     let frames = null;
-    if (kind === 'modal') {
+    if (kind === 'space') {
+      result = {};
+      frames = new Float64Array(0);
+    } else if (kind === 'modal') {
       result = core.modal(h);
       frames = core.frames(h);
     } else if (kind === 'kinematic') {
@@ -33,7 +36,11 @@ self.onmessage = async (e) => {
       result = core.result(h);
       frames = core.frames(h);
     }
+    const dof = core.dof(h);
+    const spaces = (input.spaces || []).map((q) => core.space(h, q));
     core.destroy(h);
+    result.dof = dof;
+    result.spaces = spaces;
     self.postMessage({ type: 'done', model, result, frames, elapsed: (performance.now() - t0) / 1000 }, [frames.buffer]);
   } catch (err) {
     self.postMessage({ type: 'error', message: String(err && err.message ? err.message : err) });

@@ -23,5 +23,8 @@
 - 스펙 (backend.js `defaultSpec`): materials.default, sections['*'].thickness, bh{...}, creases{"a-b": fold|bend|cut}, bcs (value≠0 = 강제 변위), loads (force/pressure/gravity), symmetry, step, plots
 - 해석 종류: static (강제 변위 있으면 MERLIN2 Displacement, 힘만 있으면 MGDCM), arclength, modal, kinematic
 - 결과 프레임 = [U(nd), 내력 IF(nd), 절점 에너지 바·접힘·휨(nn×3)]. 반력·하중점 힘은 IF 에서
-- 해석 뒤 기본 그래프: 스텝-에너지, 스텝-힘. 문장으로 스텝-변위, 변위-힘, 변위-에너지 추가
+- 해석 뒤 기본 그래프: 스텝-에너지, 스텝-힘. 문장으로 스텝-변위, 변위-힘, 변위-에너지, 주름 이면각(`angle`), 해 공간(`add_plot` `type: space3`, 주름 3개) 추가
+- 자유도 `dofInfo`·기구 경로 `foldPath`·기구 모드 `nullModes`·해 공간 `solutionSpace` (solver.cpp, Python `analysis.py` 와 같은 방법). WASM `bh_dof`, `bh_space`. 모든 결과 요약에 자유도 표시
+- 주름은 화면에서 1부터 "2-7 주름", 내부 키는 0부터 "1-6"
+- Theory 문서: `web/docs/overview.md` (원 논문·이론 정리) → `equations.md` → `verification.md`. README 맨 위 원 논문 강조는 유지
 - 논문·MATLAB 원본은 저장소에 올리지 않음 (사용자 맥 `FEM-LLM-web/bar-and-hinge_model/`)

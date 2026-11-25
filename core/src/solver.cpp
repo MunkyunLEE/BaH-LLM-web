@@ -3,6 +3,7 @@
 #include <Eigen/SparseLU>
 #include <Eigen/SparseCholesky>
 #include <algorithm>
+#include <random>
 #include <set>
 #include <cstdio>
 #include <cstdlib>
@@ -540,105 +541,262 @@ static void constraints(const Model& m, const VecX& x, bool rigidPanels, VecX& g
     if (hidOut) *hidOut = hid;
 }
 
-std::string Analysis::kinematics(int& mech, int& selfStress, int& rank, std::vector<VecX>& path, std::vector<VecX>& angles) {
+VecX Analysis::hingeAngles(const VecX& x) const {
+    MatX Xc = current(m, x);
+    VecX a(m.hinges.size());
+    for (size_t i = 0; i < m.hinges.size(); i++) {
+        const Hinge& h = m.hinges[i];
+        Vec3 xl = Xc.row(h.n[3]);
+        if (h.ghostAxis >= 0) {
+            xl = Xc.row(h.n[2]);
+            xl[h.ghostAxis] = 2 * h.ghostC - xl[h.ghostAxis];
+        }
+        a[i] = dihedral(Xc.row(h.n[0]), Xc.row(h.n[1]), Xc.row(h.n[2]), xl);
+    }
+    return a;
+}
+
+std::vector<int> Analysis::kinFree() const {
+    int nd = m.ndof();
+    std::set<int> fx(fixed.begin(), fixed.end());
+    if (fixed.empty() && !m.panels.empty()) {
+        auto& f = m.panels[0];
+        fx = {3 * f[0], 3 * f[0] + 1, 3 * f[0] + 2, 3 * f[1] + 1, 3 * f[1] + 2, 3 * f[2] + 2};
+    }
+    std::vector<int> fr;
+    for (int i = 0; i < nd; i++)
+        if (!fx.count(i)) fr.push_back(i);
+    return fr;
+}
+
+int Analysis::hingeOfEdge(int a, int b) const {
+    for (size_t i = 0; i < m.hinges.size(); i++) {
+        auto& h = m.hinges[i];
+        if ((h.edge[0] == a && h.edge[1] == b) || (h.edge[0] == b && h.edge[1] == a)) return (int)i;
+    }
+    return -1;
+}
+
+void Analysis::dofInfo(int& nc, int& nfree, int& rank, int& mech, int& selfStress) const {
     int nd = m.ndof();
     VecX x = VecX::Zero(nd), g;
     MatX J;
     constraints(m, x, true, g, J, nullptr);
-    std::vector<int> fr;
     std::set<int> fx(fixed.begin(), fixed.end());
+    std::vector<int> fr;
     for (int i = 0; i < nd; i++)
         if (!fx.count(i)) fr.push_back(i);
     MatX Jf(J.rows(), fr.size());
     for (size_t c = 0; c < fr.size(); c++) Jf.col(c) = J.col(fr[c]);
-    Eigen::BDCSVD<MatX> svd(Jf);
-    VecX s = svd.singularValues();
-    double tol = 1e-7 * (s.size() ? s.maxCoeff() : 1.0);
+    VecX sv = Jf.size() ? VecX(Eigen::BDCSVD<MatX>(Jf).singularValues()) : VecX();
+    double tol = 1e-7 * (sv.size() ? sv.maxCoeff() : 1.0);
     rank = 0;
-    for (int i = 0; i < s.size(); i++)
-        if (s[i] > tol) rank++;
-    int nullity = (int)fr.size() - rank;
+    for (int i = 0; i < sv.size(); i++)
+        if (sv[i] > tol) rank++;
+    nc = (int)J.rows();
+    nfree = (int)fr.size();
     int rig = fixed.empty() ? 6 : 0;
-    mech = std::max(nullity - rig, 0);
-    selfStress = (int)J.rows() - rank;
-    std::vector<int> foldIdx;
+    mech = std::max(nfree - rank - rig, 0);
+    selfStress = nc - rank;
+}
+
+static void hingeGradRow(const Model& m, const MatX& Xc, int hi, MatX& A, int row) {
+    const Hinge& h = m.hinges[hi];
+    Eigen::Matrix<double, 12, 1> Jh;
+    dihedralGrad(Xc.row(h.n[0]), Xc.row(h.n[1]), Xc.row(h.n[2]), Xc.row(h.n[3]), Jh);
+    for (int k = 0; k < 4; k++) A.block<1, 3>(row, 3 * h.n[k]) += Jh.segment<3>(3 * k).transpose();
+}
+
+void Analysis::nullModes(std::vector<VecX>& modes, MatX& rates, std::vector<int>& foldIdx) const {
+    int nd = m.ndof();
+    VecX x = VecX::Zero(nd), g;
+    MatX J;
+    constraints(m, x, true, g, J, nullptr);
+    std::vector<int> fr = kinFree();
+    MatX Jf(J.rows(), fr.size());
+    for (size_t c = 0; c < fr.size(); c++) Jf.col(c) = J.col(fr[c]);
+    Eigen::JacobiSVD<MatX> svd(Jf, Eigen::ComputeFullV);
+    VecX sv = svd.singularValues();
+    double tol = 1e-7 * (sv.size() ? sv.maxCoeff() : 1.0);
+    int r = 0;
+    for (int i = 0; i < sv.size(); i++)
+        if (sv[i] > tol) r++;
+    MatX V = svd.matrixV();
+    modes.clear();
+    for (int c = r; c < V.cols(); c++) {
+        VecX md = VecX::Zero(nd);
+        for (size_t q = 0; q < fr.size(); q++) md[fr[q]] = V(q, c);
+        modes.push_back(md);
+    }
+    foldIdx.clear();
     for (size_t i = 0; i < m.hinges.size(); i++)
-        if (m.hinges[i].kind == FOLD) foldIdx.push_back((int)i);
-    auto foldAngles = [&](const VecX& xx) {
-        MatX Xc = current(m, xx);
-        VecX a(m.hinges.size());
-        for (size_t i = 0; i < m.hinges.size(); i++) {
-            const Hinge& h = m.hinges[i];
-            Vec3 xl = Xc.row(h.n[3]);
-            if (h.ghostAxis >= 0) {
-                xl = Xc.row(h.n[2]);
-                xl[h.ghostAxis] = 2 * h.ghostC - xl[h.ghostAxis];
-            }
-            a[i] = dihedral(Xc.row(h.n[0]), Xc.row(h.n[1]), Xc.row(h.n[2]), xl);
+        if (m.hinges[i].kind == FOLD && m.hinges[i].ghostAxis < 0) foldIdx.push_back((int)i);
+    MatX A = MatX::Zero(foldIdx.size(), nd);
+    MatX Xc = current(m, x);
+    for (size_t q = 0; q < foldIdx.size(); q++) hingeGradRow(m, Xc, foldIdx[q], A, (int)q);
+    rates.resize(modes.size(), foldIdx.size());
+    for (size_t k = 0; k < modes.size(); k++) rates.row(k) = (A * modes[k]).transpose();
+}
+
+static double wrapPi(double d) { return d - 2 * PI * std::round(d / (2 * PI)); }
+
+void Analysis::foldPath(const std::vector<int>& drv, const VecX& targets, int steps, std::vector<VecX>& xs, std::vector<VecX>& angles, std::vector<double>& err) const {
+    int nd = m.ndof(), nds = (int)drv.size();
+    std::vector<int> fr = kinFree();
+    VecX x = VecX::Zero(nd), g;
+    MatX J;
+    VecX a0 = hingeAngles(x);
+    VecX thStart(nds);
+    for (int q = 0; q < nds; q++) thStart[q] = a0[drv[q]];
+    xs.assign(1, x);
+    angles.assign(1, a0);
+    err.clear();
+    double tol = 1e-10 * std::max(1.0, m.L.mean());
+    auto system = [&](const VecX& goal, VecX& r, MatX& M) {
+        constraints(m, x, true, g, J, nullptr);
+        MatX Xc = current(m, x);
+        MatX A = MatX::Zero(nds, nd);
+        VecX cur = hingeAngles(x);
+        VecX rd(nds);
+        for (int q = 0; q < nds; q++) {
+            hingeGradRow(m, Xc, drv[q], A, q);
+            rd[q] = wrapPi(cur[drv[q]] - goal[q]);
         }
-        return a;
+        r.resize(g.size() + nds);
+        r << g, rd;
+        M.resize(r.size(), fr.size());
+        for (size_t c = 0; c < fr.size(); c++) {
+            M.block(0, c, g.size(), 1) = J.col(fr[c]);
+            M.block(g.size(), c, nds, 1) = A.col(fr[c]);
+        }
     };
-    angles.push_back(foldAngles(x));
-    path.push_back(x);
+    for (int s = 1; s <= steps; s++) {
+        VecX goal = thStart + (targets - thStart) * double(s) / steps;
+        VecX r;
+        MatX M;
+        system(goal, r, M);
+        VecX rhs = VecX::Zero(r.size());
+        rhs.tail(nds) = -r.tail(nds);
+        VecX v = M.completeOrthogonalDecomposition().solve(rhs);
+        for (size_t c = 0; c < fr.size(); c++) x[fr[c]] += v[c];
+        double rprev = INF, rn = INF;
+        for (int it = 0; it < 30; it++) {
+            system(goal, r, M);
+            rn = r.cwiseAbs().maxCoeff();
+            if (rn < tol || (it > 1 && rn < 1e3 * tol && rn > 0.5 * rprev)) break;
+            rprev = rn;
+            VecX dx = M.completeOrthogonalDecomposition().solve(-r);
+            for (size_t c = 0; c < fr.size(); c++) x[fr[c]] += dx[c];
+        }
+        xs.push_back(x);
+        angles.push_back(hingeAngles(x));
+        err.push_back(rn);
+    }
+}
+
+int Analysis::solutionSpace(const std::vector<int>& hid, int ndir, double amp, int steps, std::vector<std::vector<Vec3>>& paths) const {
+    std::vector<VecX> modes;
+    MatX rates;
+    std::vector<int> fi;
+    nullModes(modes, rates, fi);
+    int k = (int)modes.size();
+    paths.clear();
+    if (k == 0 || fi.empty()) return k;
+    std::vector<VecX> dirs;
+    if (k == 1) {
+        dirs.push_back(VecX::Constant(1, 1.0));
+        dirs.push_back(VecX::Constant(1, -1.0));
+    } else {
+        std::mt19937 rng(0);
+        std::normal_distribution<double> nd01(0.0, 1.0);
+        for (int q = 0; q < ndir; q++) {
+            VecX d(k);
+            for (int c = 0; c < k; c++) d[c] = nd01(rng);
+            dirs.push_back(d / d.norm());
+        }
+    }
+    std::vector<int> drvK;
+    if (k > 1) {
+        std::vector<int> order(fi.size());
+        for (size_t c = 0; c < fi.size(); c++) order[c] = (int)c;
+        VecX tot = rates.cwiseAbs().colwise().sum().transpose();
+        std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return tot[a] > tot[b]; });
+        std::vector<int> cols;
+        for (int c : order) {
+            std::vector<int> cand = cols;
+            cand.push_back(c);
+            MatX sub(k, cand.size());
+            for (size_t q = 0; q < cand.size(); q++) sub.col(q) = rates.col(cand[q]);
+            Eigen::FullPivLU<MatX> lu(sub);
+            if (lu.rank() == (int)cand.size()) cols = cand;
+            if ((int)cols.size() == k) break;
+        }
+        drvK = cols;
+    }
+    VecX th0 = hingeAngles(VecX::Zero(m.ndof()));
+    for (auto& d : dirs) {
+        VecX rate = rates.transpose() * d;
+        std::vector<int> cols = drvK;
+        if (k == 1) {
+            int j = 0;
+            rate.cwiseAbs().maxCoeff(&j);
+            cols = {j};
+        }
+        if (cols.empty()) continue;
+        VecX dr(cols.size());
+        for (size_t q = 0; q < cols.size(); q++) dr[q] = rate[cols[q]];
+        double mx = dr.cwiseAbs().maxCoeff();
+        if (mx == 0) continue;
+        std::vector<int> drv;
+        VecX tgt(cols.size());
+        for (size_t q = 0; q < cols.size(); q++) {
+            drv.push_back(fi[cols[q]]);
+            tgt[q] = std::min(std::max(th0[fi[cols[q]]] + amp * dr[q] / mx, 1e-3), 2 * PI - 1e-3);
+        }
+        std::vector<VecX> xs, ang;
+        std::vector<double> err;
+        foldPath(drv, tgt, steps, xs, ang, err);
+        int nOk = (int)err.size();
+        for (size_t q = 0; q < err.size(); q++)
+            if (!(err[q] < 1e-6)) {
+                nOk = (int)q;
+                break;
+            }
+        std::vector<Vec3> p;
+        for (int q = 0; q <= nOk; q++) {
+            Vec3 v = Vec3::Zero();
+            for (size_t c = 0; c < hid.size() && c < 3; c++) v[c] = hid[c] >= 0 ? ang[q][hid[c]] : 0.0;
+            p.push_back(v);
+        }
+        paths.push_back(p);
+    }
+    return k;
+}
+
+std::string Analysis::kinematics(int& mech, int& selfStress, int& rank, std::vector<VecX>& path, std::vector<VecX>& angles) {
+    int nc = 0, nfree = 0;
+    dofInfo(nc, nfree, rank, mech, selfStress);
+    path.assign(1, VecX::Zero(m.ndof()));
+    angles.assign(1, hingeAngles(path[0]));
     if (set.drivers.empty() && !set.driverEdges.empty()) {
         for (auto& e : set.driverEdges) {
-            int hit = -1;
-            for (size_t i = 0; i < m.hinges.size() && hit < 0; i++) {
-                auto& h = m.hinges[i];
-                if ((h.edge[0] == e[0] && h.edge[1] == e[1]) || (h.edge[0] == e[1] && h.edge[1] == e[0])) hit = (int)i;
-            }
+            int hit = hingeOfEdge(e[0], e[1]);
             if (hit < 0) return "driver_not_found";
             set.drivers.push_back(hit);
         }
     }
     if (set.drivers.empty()) return "";
-    std::vector<int> fr2 = fr;
-    if (fixed.empty() && !m.panels.empty()) {
-        auto& f = m.panels[0];
-        std::set<int> rf = {3 * f[0], 3 * f[0] + 1, 3 * f[0] + 2, 3 * f[1] + 1, 3 * f[1] + 2, 3 * f[2] + 2};
-        fr2.clear();
-        for (int i = 0; i < nd; i++)
-            if (!rf.count(i)) fr2.push_back(i);
-    }
-    VecX th0 = angles[0];
     int nds = (int)set.drivers.size();
     VecX tgt(nds);
-    for (int q = 0; q < nds; q++) tgt[q] = set.targets[q];
-    VecX ref = th0;
-    double tolx = 1e-10 * std::max(1.0, m.L.mean());
-    for (int sidx = 1; sidx <= set.kinSteps; sidx++) {
-        VecX goal(nds);
-        for (int q = 0; q < nds; q++) goal[q] = th0[set.drivers[q]] + (tgt[q] - th0[set.drivers[q]]) * sidx / set.kinSteps;
-        for (int it = 0; it < 30; it++) {
-            constraints(m, x, true, g, J, nullptr);
-            VecX cur = foldAngles(x);
-            MatX A = MatX::Zero(nds, nd);
-            VecX rd(nds);
-            MatX Xc = current(m, x);
-            for (int q = 0; q < nds; q++) {
-                const Hinge& h = m.hinges[set.drivers[q]];
-                Eigen::Matrix<double, 12, 1> Jh;
-                dihedralGrad(Xc.row(h.n[0]), Xc.row(h.n[1]), Xc.row(h.n[2]), Xc.row(h.n[3]), Jh);
-                for (int k = 0; k < 4; k++) A.block<1, 3>(q, 3 * h.n[k]) += Jh.segment<3>(3 * k).transpose();
-                double d = cur[set.drivers[q]] - goal[q];
-                d -= 2 * PI * std::round(d / (2 * PI));
-                rd[q] = d;
-            }
-            VecX r(g.size() + nds);
-            r << g, rd;
-            if (r.cwiseAbs().maxCoeff() < tolx) break;
-            MatX Mm(r.size(), fr2.size());
-            for (size_t c = 0; c < fr2.size(); c++) {
-                Mm.block(0, c, g.size(), 1) = J.col(fr2[c]);
-                Mm.block(g.size(), c, nds, 1) = A.col(fr2[c]);
-            }
-            VecX dx = Mm.completeOrthogonalDecomposition().solve(-r);
-            for (size_t c = 0; c < fr2.size(); c++) x[fr2[c]] += dx[c];
-        }
-        path.push_back(x);
-        angles.push_back(foldAngles(x));
+    for (int q = 0; q < nds; q++) tgt[q] = q < (int)set.targets.size() ? set.targets[q] : angles[0][set.drivers[q]];
+    std::vector<VecX> xs, ang;
+    std::vector<double> err;
+    foldPath(set.drivers, tgt, set.kinSteps, xs, ang, err);
+    for (size_t q = 1; q < xs.size(); q++) {
+        if (!(err[q - 1] < 1e-6)) return "path_incompatible";
+        path.push_back(xs[q]);
+        angles.push_back(ang[q]);
     }
-    (void)ref;
     return "";
 }
 

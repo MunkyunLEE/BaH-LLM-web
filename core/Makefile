@@ -28,5 +28,5 @@ wasm: $(WOBJ)
 	$(ZIG) c++ -target wasm32-wasi -mexec-model=reactor -O2 $(WOBJ) -o ../web/bh.wasm \
 	  -Wl,--export=bh_alloc -Wl,--export=bh_free -Wl,--export=bh_last -Wl,--export=bh_create -Wl,--export=bh_destroy \
 	  -Wl,--export=bh_model -Wl,--export=bh_step -Wl,--export=bh_status -Wl,--export=bh_result -Wl,--export=bh_frames_ptr \
-	  -Wl,--export=bh_frames_len -Wl,--export=bh_modal -Wl,--export=bh_kinematic -Wl,--export=malloc -Wl,--export=free \
+	  -Wl,--export=bh_frames_len -Wl,--export=bh_modal -Wl,--export=bh_kinematic -Wl,--export=bh_dof -Wl,--export=bh_space -Wl,--export=malloc -Wl,--export=free \
 	  -Wl,--strip-all -Wl,-z,stack-size=8388608

@@ -29,6 +29,11 @@ OPS:
  {"op":"add_plot","title":str,"x":QUANTITY,"series":[QUANTITY,...]}
 QUANTITY: {"quantity":"step"|"lam"|"energy.total"|"energy.bar"|"energy.fold"|"energy.bend"|"energy.plastic"|"energy.contact"|"energy.external"|"force"}
        or nodal: {"quantity":"u"|"ux"|"uy"|"uz"|"force.x"|"force.y"|"force.z","select":SELECT}  (u = mean over nodes, force = sum of nodal force = reaction at supports / applied load at loaded nodes)
+       or crease dihedral angle in degrees: {"quantity":"angle","select":{"edge":"a-b"}}
+ {"op":"add_plot","type":"space3","edges":["a-b","c-d","e-f"]}   3D solution space of three crease dihedral angles (rigid folding paths + current analysis path)
+Edge keys "a-b" use 0-based node indices with a<b; the user speaks 1-based ("2-7 crease" = "1-6").
+Degree-of-freedom analysis: set_step kinematic with set_bh drivers [] (shows mechanism count and mechanism modes). Kinematic path: set_bh drivers ["a-b"], targets [deg] + set_step kinematic.
+Stiffness-only eigen modes: set_bh use_mass false + set_step modal.
 After every static analysis the app always shows step-energy and step-force plots.
 Rules: change only what the user asked (patch). If ambiguous, return "ops": [] and ask in "reply".`;
 

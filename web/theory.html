@@ -12,17 +12,20 @@ table { border-collapse: collapse; width: 100%; margin: 8px 0 16px; font-size: 1
 th, td { border: 1px solid #2a3340; padding: 6px 8px; vertical-align: top; text-align: left; }
 th { background: #18202b; } code { background: #18202b; padding: 1px 5px; border-radius: 4px; color: #ffd84a; }
 nav a { color: #9fb3c8; margin-right: 14px; } li { margin: 4px 0; }
+h3 { font-size: 15px; margin: 18px 0 6px; color: #ffd84a; } nav { position: sticky; top: 0; background: #0f141b; padding: 8px 0; border-bottom: 1px solid #2a3340; }
+#ov h2:first-of-type + p { background: #18202b; border-left: 3px solid #4cc2ff; padding: 10px 14px; }
 </style>
 </head>
 <body>
 <main>
-<nav><a href="index.html">← 앱으로</a><a href="#eq">수식 대장</a><a href="#ver">검증 결과</a></nav>
+<nav><a href="index.html">← 앱으로</a><a href="#ov">이론 정리</a><a href="#eq">수식 대장</a><a href="#ver">검증 결과</a></nav>
+<div id="ov"></div>
 <div id="eq"></div>
 <div id="ver"></div>
 </main>
 <script>
 function inline(t) {
-  return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/`([^`]+)`/g, '<code>$1</code>');
+  return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
 }
 function md(src) {
   const out = [];
@@ -49,6 +52,7 @@ function md(src) {
   return out.join('\n');
 }
 (async () => {
+  document.getElementById('ov').innerHTML = md(await (await fetch('docs/overview.md')).text());
   document.getElementById('eq').innerHTML = md(await (await fetch('docs/equations.md')).text());
   document.getElementById('ver').innerHTML = md(await (await fetch('docs/verification.md')).text());
 })();

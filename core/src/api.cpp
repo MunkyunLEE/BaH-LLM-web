@@ -437,6 +437,24 @@ const char* bh_kinematic(int h) {
     std::vector<VecX> path, ang;
     std::string kmsg = S->A.kinematics(mech, ss, rank, path, ang);
     json j;
+    if (kmsg.empty() && S->A.set.drivers.empty() && mech > 0) {
+        std::vector<VecX> modes;
+        MatX rates;
+        std::vector<int> fi;
+        S->A.nullModes(modes, rates, fi);
+        path.clear();
+        ang.clear();
+        int cnt = std::min((int)modes.size(), std::max(S->A.set.modes, 1));
+        VecX a0 = S->A.hingeAngles(VecX::Zero(S->A.m.ndof()));
+        for (int k = 0; k < cnt; k++) {
+            VecX md = modes[k];
+            double am = md.cwiseAbs().maxCoeff();
+            if (am > 0) md /= am;
+            path.push_back(md);
+            ang.push_back(a0);
+        }
+        j["mechModes"] = cnt;
+    }
     j["error"] = kmsg;
     j["mechanisms"] = mech;
     j["selfStress"] = ss;
@@ -452,4 +470,55 @@ const char* bh_kinematic(int h) {
     return S->buf.c_str();
 }
 }
+extern "C" {
+const char* bh_dof(int h) {
+    Session* S = get(h);
+    if (!S) return "{}";
+    int nc = 0, nf = 0, rank = 0, mech = 0, ss = 0;
+    S->A.dofInfo(nc, nf, rank, mech, ss);
+    json j;
+    j["constraints"] = nc;
+    j["freeDofs"] = nf;
+    j["rank"] = rank;
+    j["mechanisms"] = mech;
+    j["selfStress"] = ss;
+    j["rigidRemoved"] = S->A.fixed.empty() ? 6 : 0;
+    S->buf = j.dump();
+    return S->buf.c_str();
+}
+
+const char* bh_space(int h, const char* spec) {
+    Session* S = get(h);
+    if (!S) return "{}";
+    json q = json::parse(spec, nullptr, false);
+    json j;
+    std::vector<int> hid;
+    json miss = json::array();
+    if (q.is_object() && q.contains("edges"))
+        for (auto& e : q["edges"]) {
+            int a = e[0].get<int>(), b = e[1].get<int>();
+            int k = S->A.hingeOfEdge(a, b);
+            if (k < 0) miss.push_back({a, b});
+            hid.push_back(k);
+        }
+    int ndir = q.is_object() ? (int)numOr(q.value("ndir", json(24)), 24) : 24;
+    int steps = q.is_object() ? (int)numOr(q.value("steps", json(60)), 60) : 60;
+    double amp = q.is_object() ? numOr(q.value("amp", json(PI * 0.9)), PI * 0.9) : PI * 0.9;
+    std::vector<std::vector<Vec3>> paths;
+    int dof = S->A.solutionSpace(hid, ndir, amp, steps, paths);
+    json P = json::array();
+    for (auto& p : paths) {
+        json one = json::array();
+        for (auto& v : p) one.push_back({v[0], v[1], v[2]});
+        P.push_back(one);
+    }
+    j["dof"] = dof;
+    j["paths"] = P;
+    j["missing"] = miss;
+    j["hinges"] = hid;
+    S->buf = j.dump();
+    return S->buf.c_str();
+}
+}
+
 namespace bh { Analysis* debugGet(int h) { auto* S = get(h); return S ? &S->A : nullptr; } }

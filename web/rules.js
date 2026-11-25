@@ -292,7 +292,74 @@ const HELP =
   "강제 변위: '59번 절점을 y 방향으로 -30 mm'. 재료: 'E 1000', '포아송 0.3', '두께 0.25', '종이로'. " +
   "모델: 'N4B5 로', 'L* 30 mm', '접촉 켜', '소성 힌지 켜', '반복 3회', 'MERLIN2 호환'. 주름: '선택한 엣지를 휨으로'. " +
   "해석: '호장법으로', '모드 6개', '증분 200', '해석 실행'. 스케일: '전체 크기 2배', 'm 단위를 mm 로', '변형 10배로 보여줘'. " +
-  "결과: '59번 점 변위 보여줘', '59번 점 변위-힘 그래프', '59번 점 변위-에너지', '접힘 에너지 그래프', '최대 반력 얼마?'. 수정: 'ld1 2배', 'bc2 삭제', '되돌려'.";
+  "결과: '59번 점 변위 보여줘', '59번 점 변위-힘 그래프', '59번 점 변위-에너지', '접힘 에너지 그래프', '최대 반력 얼마?'. 수정: 'ld1 2배', 'bc2 삭제', '되돌려'. " +
+  "기구·모드: '자유도 해석', '2-7 주름을 120도까지 구동', '선택한 주름 3개 해공간 3차원 그래프', '2-7, 7-12, 6-7 주름 해공간', '2-7 주름 각도 그래프', '강성 행렬 모드 6개', '자유도 몇 개?'.";
+
+function edgeRefs(c, geo) {
+  const pe = panelEdges(geo);
+  const out = [];
+  const bad = [];
+  for (const m of c.takeall('(?<![\\d.])(\\d+)\\s*(?:번)?\\s*-\\s*(\\d+)(?![\\d.])\\s*(?:번)?')) {
+    const k = edgeKey(+m[1] - 1, +m[2] - 1);
+    if (pe.has(k) && pe.get(k).length >= 2) out.push(k);
+    else bad.push(`${m[1]}-${m[2]}${pe.has(k) ? ' (테두리)' : ''}`);
+  }
+  return { keys: [...new Set(out)], bad };
+}
+
+function edgeName(k) {
+  const [a, b] = k.split('-').map(Number);
+  return `${a + 1}-${b + 1}`;
+}
+
+function parseKinematic(c, geo, ctx, info) {
+  const ops = [];
+  const space = c.has('해\\s*공간|solution\\s*space|3\\s*차원|삼차원|(?<![a-z])3d(?![a-z])');
+  const angle = !space && c.has('이면각|각도|(?<![a-z])angle') && c.has('그래프|플롯|plot|graph|그려|곡선|보여|이력|변화');
+  const degs = c.has('구동|돌려|접어|펼쳐|driver|drive') ? [...c.w.matchAll(new RegExp(NUM + '\\s*(?:도|°|deg)', 'g'))].map((m) => +m[1]) : [];
+  const dofOnly = c.has('자유도\\s*(?:해석|분석|계산|구해|확인)|dof\\s*analysis');
+  const stiff = c.has('강성\\s*(?:행렬)?\\s*(?:기반|만)?\\s*(?:으로|의)?\\s*(?:고유|모드)|(?:고유|모드)\\s*(?:를|을)?\\s*강성\\s*(?:행렬)?');
+  if (!space && !angle && !degs.length && !dofOnly && !stiff) return null;
+  if (stiff) {
+    const m = c.take(NUM + '\\s*(?:개|차)');
+    c.takeall('강성|행렬|기반|고유값?|모드|해석|으로|의|를|을|만');
+    ops.push({ op: 'set_bh', use_mass: false });
+    ops.push({ op: 'set_step', type: 'modal', ...(m ? { modes: Math.round(+m[1]) } : {}) });
+    return { ops, msgs: ['강성 행렬 K 만으로 고유값 해석 (질량 없음)' + (m ? ` · 모드 ${m[1]}개` : '')] };
+  }
+  if (dofOnly && !degs.length && !space) {
+    c.takeall('자유도|해석|분석|계산|구해|확인');
+    ops.push({ op: 'set_bh', drivers: [], targets: [] });
+    ops.push({ op: 'set_step', type: 'kinematic' });
+    return { ops, msgs: ['기구 자유도 해석: 강체 패널 구속 야코비안의 계수로 자유도를 세고, 기구 모드를 보여 줍니다'] };
+  }
+  const { keys, bad } = edgeRefs(c, geo);
+  const es = keys.length ? keys : selectedEdges(geo, ctx);
+  if (bad.length) {
+    info.ask = true;
+    return { ops, msgs: [`주름(두 패널 사이 엣지)이 아닙니다: ${bad.join(', ')} (절점 번호는 화면의 #번호, 1부터)`] };
+  }
+  if (space) {
+    if (es.length < 3) {
+      info.ask = true;
+      return { ops, msgs: [`해공간 그래프에는 주름 3개가 필요합니다 (지금 ${es.length}개). 예: '2-7, 7-12, 6-7 주름 해공간 그래프' 또는 주름 편집 모드에서 3개를 고르고 '선택한 주름 해공간 그래프'`] };
+    }
+    ops.push({ op: 'add_plot', type: 'space3', edges: es.slice(0, 3) });
+    return { ops, msgs: [`해공간 3차원 그래프 추가: ${es.slice(0, 3).map(edgeName).join(', ')}${es.length > 3 ? ` (앞의 3개만 씀, 선택 ${es.length}개)` : ''}`] };
+  }
+  if (!es.length) {
+    info.ask = true;
+    return { ops, msgs: ["어느 주름인지 알려 주세요. 예: '2-7 주름' 또는 주름 편집 모드에서 엣지를 고르고 '선택한 주름 …'"] };
+  }
+  if (angle) {
+    ops.push({ op: 'add_plot', title: `이면각 ${es.map(edgeName).join(', ')}`, x: { quantity: 'step' }, series: es.map((k) => ({ quantity: 'angle', select: { edge: k } })) });
+    return { ops, msgs: [`그래프 추가: 주름 ${es.map(edgeName).join(', ')} 이면각`] };
+  }
+  const tg = es.map((_, i) => degs[Math.min(i, degs.length - 1)]);
+  ops.push({ op: 'set_bh', drivers: es, targets: tg });
+  ops.push({ op: 'set_step', type: 'kinematic' });
+  return { ops, msgs: [`기구 해석: 구동 주름 ${es.map((k, i) => `${edgeName(k)} → ${tg[i]}°`).join(', ')}`] };
+}
 
 function parsePlot(c, geo, spec, ctx) {
   const t = c.w;
@@ -368,7 +435,11 @@ function answer(c, ctx, geo) {
     const f = r.result.freq || [];
     if (m && f[+m[1] - 1] !== undefined) out.push(`${m[1]}차 고유진동수 ${(+f[+m[1] - 1]).toPrecision(5)} Hz`);
     else if (f.length) out.push(`고유진동수 ${f.slice(0, 6).map((v) => (+v).toPrecision(4)).join(', ')} Hz`);
-  } else if (r.kind === 'kinematic') out.push(`기구 자유도 ${r.result.mechanisms}`);
+  }
+  if (/자유도|dof|기구/.test(t) && r.result.dof) {
+    const d = r.result.dof;
+    out.push(`기구 자유도 ${d.mechanisms} (강체 패널, 구속식 ${d.constraints} · 자유 자유도 ${d.freeDofs} · 계수 ${d.rank}${d.rigidRemoved ? ' · 강체 운동 6 제외' : ''}) · 자기 응력 상태 ${d.selfStress}`);
+  }
   return out.length ? out.join(' · ') : null;
 }
 
@@ -411,7 +482,7 @@ function parseClause(text, geo, spec, ctx, info) {
     info.answered = true;
     return { ops, msgs: [HELP] };
   }
-  const ans = /얼마|몇\s*(?:n|mm|hz)|알려\s*줘|\?/.test(c.w) && !/그래프|플롯|보여/.test(c.w) ? answer(new Clause(c.w), ctx, geo) : null;
+  const ans = (/얼마|몇\s*(?:n|mm|hz)|알려\s*줘|\?/.test(c.w) || (/자유도/.test(c.w) && /몇|얼마|알려/.test(c.w))) && !/그래프|플롯|보여/.test(c.w) ? answer(new Clause(c.w), ctx, geo) : null;
   if (ans) {
     info.answered = true;
     return { ops, msgs: [ans] };
@@ -537,6 +608,9 @@ function parseClause(text, geo, spec, ctx, info) {
     ops.push({ op: 'set_crease', edges: es, type: ty });
     c.takeall('으로|로|바꿔|변경|설정|해줘|줘');
   }
+
+  const kin = parseKinematic(c, geo, ctx, info);
+  if (kin) return { ops: [...ops, ...kin.ops], msgs: [...msgs, ...kin.msgs] };
 
   const step = {};
   if (c.take('호장법|arc\\s*-?\\s*length|mgdcm|변위\\s*제어\\s*호장|경로\\s*추적')) step.type = 'arclength';

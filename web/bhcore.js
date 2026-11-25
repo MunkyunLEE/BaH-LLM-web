@@ -54,6 +54,16 @@ export async function loadCore(src) {
     result: (h) => call("bh_result", h),
     modal: (h) => call("bh_modal", h),
     kinematic: (h) => call("bh_kinematic", h),
+    dof: (h) => call("bh_dof", h),
+    space(h, q) {
+      const s = enc.encode(JSON.stringify(q));
+      const p = ex.malloc(s.length + 1);
+      new Uint8Array(mem.buffer).set(s, p);
+      new Uint8Array(mem.buffer)[p + s.length] = 0;
+      const r = JSON.parse(cstr(ex.bh_space(h, p)));
+      ex.free(p);
+      return r;
+    },
     frames(h) {
       const p = ex.bh_frames_ptr(h), n = ex.bh_frames_len(h);
       return new Float64Array(mem.buffer, p, n).slice();

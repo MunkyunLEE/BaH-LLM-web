@@ -692,7 +692,7 @@ async function showFrame() {
     for (const u of f.U) umax = Math.max(umax, Math.hypot(u[0], u[1], u[2]));
     const nl = st.result.kind === 'static';
     R.scale = nl || umax === 0 ? 1 : +((0.15 * diag) / umax).toPrecision(2);
-    if (st.result.kind === 'kinematic') R.scale = 1;
+    if (st.result.kind === 'kinematic' && !st.result.mechModes) R.scale = 1;
     if (R.viewScale) {
       R.scale = R.viewScale;
       R.viewScale = null;
@@ -1112,6 +1112,11 @@ function chart(p) {
 
 async function loadPlots() {
   const box = $('plots');
+  for (const c of BH.k3s || []) {
+    c.stop = true;
+    c.renderer.dispose();
+  }
+  BH.k3s = [];
   box.innerHTML = '';
   if (!st || !st.spec) return;
   if (!st.spec.plots.length && !st.result) return;
@@ -1129,7 +1134,12 @@ async function loadPlots() {
     if (!p.auto) t.append(x);
     d.append(t);
     if (p.error) d.append(el('div', 'perr', p.error));
-    else {
+    else if (p.type === '3d') {
+      t.firstChild.textContent += ` · 기구 자유도 ${p.dof} · 이면각 (도)`;
+      box.append(d);
+      plot3d(p, d);
+      continue;
+    } else {
       d.append(chart(p));
       const lg = el('div', 'legend');
       p.series.forEach((s, k) => {
@@ -2274,35 +2284,22 @@ function textSprite(text, color) {
   return sp;
 }
 
-async function loadKin3d() {
-  if (BH.k3) {
-    BH.k3.stop = true;
-    BH.k3.renderer.dispose();
-    BH.k3 = null;
-  }
-  if (!st || !st.result || !st.spec || st.spec.solver !== 'bh' || st.spec.step.type !== 'kinematic') return;
-  let k;
-  try {
-    k = await api('/api/result/kin3d');
-  } catch (e) {
+function plot3d(k, d) {
+  const all = [...(k.paths || []).flat(), ...(k.main || [])];
+  if (!all.length) {
+    d.append(el('div', 'perr', `그릴 경로가 없습니다 (기구 자유도 ${k.dof})`));
     return;
   }
-  if (!k || !k.edges) return;
-  const all = [...(k.paths || []).flat(), ...(k.main || [])];
-  if (!all.length) return;
   const lo = [0, 1, 2].map((i) => Math.min(...all.map((p) => p[i])));
   const hi = [0, 1, 2].map((i) => Math.max(...all.map((p) => p[i])));
   const nrm = (p) => p.map((v, i) => (hi[i] - lo[i] > 1e-9 ? (v - lo[i]) / (hi[i] - lo[i]) : 0.5) - 0.5);
-  const d = el('div', 'plot kin3d');
-  const t = el('div', 'ptitle');
-  t.append(el('span', '', `기구 해공간 · 자유도 ${k.dof} · 이면각 (도)`));
-  d.append(t);
+  d.classList.add('kin3d');
   const cv = document.createElement('canvas');
   d.append(cv);
   const lg = el('div', 'legend');
-  lg.innerHTML = `<span><i style="background:#ff6b5e"></i>X ${k.edges[0]}</span><span><i style="background:#7fe07f"></i>Y ${k.edges[1]}</span><span><i style="background:#5ec8ff"></i>Z ${k.edges[2]}</span><span><i style="background:#ffd84a"></i>해석 경로</span><span><i style="background:#9fb3c8"></i>방향별 경로</span>`;
+  lg.innerHTML = `<span><i style="background:#ff6b5e"></i>X ${k.edges[0]}</span><span><i style="background:#7fe07f"></i>Y ${k.edges[1]}</span><span><i style="background:#5ec8ff"></i>Z ${k.edges[2]}</span>${(k.main || []).length > 1 ? `<span><i style="background:#ffd84a"></i>${k.mainName}</span>` : ''}<span><i style="background:#9fb3c8"></i>강체 접힘 경로 (방향 ${(k.paths || []).length}개)</span>`;
   d.append(lg);
-  $('plots').append(d);
+  for (const n of k.notes || []) d.append(el('div', 'perr', n));
   const w = cv.clientWidth || 420;
   const h = 320;
   const rd = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
@@ -2340,7 +2337,8 @@ async function loadKin3d() {
     sc.add(dot);
   }
   const ctx = { renderer: rd, stop: false };
-  BH.k3 = ctx;
+  BH.k3s = (BH.k3s || []).filter((c) => !c.stop);
+  BH.k3s.push(ctx);
   const tick = () => {
     if (ctx.stop || !cv.isConnected) return;
     oc.update();

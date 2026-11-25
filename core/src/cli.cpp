@@ -15,6 +15,8 @@ double* bh_frames_ptr(int);
 int bh_frames_len(int);
 const char* bh_modal(int);
 const char* bh_kinematic(int);
+const char* bh_dof(int);
+const char* bh_space(int, const char*);
 }
 int main(int argc, char** argv) {
     if (argc < 3) { std::cerr << "usage: bhcli input.json outprefix [modal|kinematic]\n"; return 2; }
@@ -28,6 +30,8 @@ int main(int argc, char** argv) {
     const char* res;
     if (mode == "modal") res = bh_modal(h);
     else if (mode == "kinematic") res = bh_kinematic(h);
+    else if (mode == "dof") res = bh_dof(h);
+    else if (mode == "space") res = bh_space(h, argc > 4 ? argv[4] : "{}");
     else { while (!bh_step(h, 10)) {} res = bh_result(h); }
     std::ofstream(pre + "_result.json") << res;
     std::ofstream b(pre + "_frames.bin", std::ios::binary);
