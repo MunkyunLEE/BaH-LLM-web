@@ -313,6 +313,9 @@ void packFrames(Session& S) {
         S.frames.insert(S.frames.end(), f.Eb.data(), f.Eb.data() + nn);
         S.frames.insert(S.frames.end(), f.Ef.data(), f.Ef.data() + nn);
         S.frames.insert(S.frames.end(), f.Ebd.data(), f.Ebd.data() + nn);
+        int nb = (int)m.bars.size();
+        if (f.Sx.size() == nb) S.frames.insert(S.frames.end(), f.Sx.data(), f.Sx.data() + nb);
+        else S.frames.insert(S.frames.end(), nb, 0.0);
     }
 }
 
@@ -393,7 +396,8 @@ const char* bh_result(int h) {
     j["notes"] = S->A.notes;
     j["nd"] = S->A.m.ndof();
     j["nn"] = (int)S->A.m.X.rows();
-    j["stride"] = 2 * S->A.m.ndof() + 3 * (int)S->A.m.X.rows();
+    j["stride"] = 2 * S->A.m.ndof() + 3 * (int)S->A.m.X.rows() + (int)S->A.m.bars.size();
+    j["nb"] = (int)S->A.m.bars.size();
     j["F"] = std::vector<double>(S->A.F.data(), S->A.F.data() + S->A.F.size());
     j["Ubar"] = std::vector<double>(S->A.Ubar.data(), S->A.Ubar.data() + S->A.Ubar.size());
     S->buf = j.dump();

@@ -522,7 +522,24 @@ function fieldValues(res, i, field) {
   for (let k = 0; k < n; k++) U.push([f[3 * k], f[3 * k + 1], f[3 * k + 2]]);
   if (field === 'U') for (let k = 0; k < n; k++) vals[k] = Math.hypot(...U[k]);
   else if (field === 'ux' || field === 'uy' || field === 'uz') for (let k = 0; k < n; k++) vals[k] = U[k]['xyz'.indexOf(field[1])];
-  else if (res.kind === 'static') {
+  else if (res.kind === 'static' && (field === 'barForce' || field === 'barStress')) {
+    const off = 2 * nd + 3 * nn;
+    const bars = model.bars;
+    const A = model.A;
+    const cnt = new Float64Array(n);
+    const edge = new Float64Array(bars.length);
+    for (let e = 0; e < bars.length; e++) {
+      const sx = f[off + e];
+      edge[e] = sx;
+      const v = field === 'barForce' ? Math.abs(sx * A[e]) : sx;
+      for (const k of bars[e]) {
+        vals[k] += v;
+        cnt[k]++;
+      }
+    }
+    if (field === 'barStress') for (let k = 0; k < n; k++) vals[k] /= cnt[k] || 1;
+    return { U, vals, edge: field === 'barStress' ? edge : null };
+  } else if (res.kind === 'static') {
     const off = 2 * nd;
     for (let k = 0; k < n; k++) {
       const eb = f[off + k], ef = f[off + nn + k], ebd = f[off + 2 * nn + k];
@@ -767,7 +784,7 @@ function buildResult(kind, mode, model, result, frames, elapsed) {
     else if (result.mechModes) labels.push(`기구 모드 ${i + 1}`);
     else labels.push(`경로 ${i}`);
   }
-  const fields = kind === 'static' ? ['energyDensity', 'foldDensity', 'bendDensity', 'stretchDensity', 'U', 'ux', 'uy', 'uz'] : ['U', 'ux', 'uy', 'uz'];
+  const fields = kind === 'static' ? ['barForce', 'barStress', 'energyDensity', 'foldDensity', 'bendDensity', 'stretchDensity', 'U', 'ux', 'uy', 'uz'] : ['U', 'ux', 'uy', 'uz'];
   const summary = {};
   if (kind === 'static') {
     const L = count - 1;
@@ -949,23 +966,26 @@ export async function api(path, opts = {}) {
     const res = S.result;
     const i = +q.get('i');
     const field = q.get('field');
-    const { U, vals } = fieldValues(res, i, field);
+    const { U, vals, edge } = fieldValues(res, i, field);
     let lo = Infinity, hi = -Infinity;
     for (const v of vals) {
       lo = Math.min(lo, v);
       hi = Math.max(hi, v);
     }
-    if (res.kind === 'static' && field.endsWith('Density')) {
+    if (res.kind === 'static' && (field.endsWith('Density') || field === 'barForce' || field === 'barStress')) {
       res._hi = res._hi || {};
       if (res._hi[field] === undefined) {
         let h = 0;
-        for (let k = 0; k < res.count; k++) for (const v of fieldValues(res, k, field).vals) h = Math.max(h, v);
+        for (let k = 0; k < res.count; k++) {
+          const fv = fieldValues(res, k, field);
+          for (const v of fv.edge || fv.vals) h = Math.max(h, Math.abs(v));
+        }
         res._hi[field] = h;
       }
-      lo = 0;
       hi = res._hi[field];
+      lo = field === 'barStress' ? -hi : 0;
     }
-    return { U, values: Array.from(vals), min: lo, max: hi, label: res.meta.frames[i], time: res.kind === 'static' ? res.result.s[i] : 0 };
+    return { U, values: Array.from(vals), edge: edge ? Array.from(edge) : null, min: lo, max: hi, label: res.meta.frames[i], time: res.kind === 'static' ? res.result.s[i] : 0 };
   }
   if (p === '/api/plots') return await plotList();
   if (p === '/api/llm') {

@@ -107,7 +107,8 @@ def run_matlab(name, c):
                    stdout=subprocess.DEVNULL)
     ld = lambda s: np.atleast_1d(np.loadtxt(f"{pre}_{s}.txt"))
     np.savez_compressed(os.path.join(REF, f"{name}.npz"), U=np.loadtxt(f"{pre}_U.txt", ndmin=2),
-                        F=ld("F"), E=np.atleast_2d(np.loadtxt(f"{pre}_E.txt")), bars=ld("bars"), A=ld("A"), node=ld("node"))
+                        F=ld("F"), E=np.atleast_2d(np.loadtxt(f"{pre}_E.txt")), bars=ld("bars"), A=ld("A"), node=ld("node"),
+                        Sx=np.loadtxt(f"{pre}_Sx.txt", ndmin=2) if os.path.exists(f"{pre}_Sx.txt") else np.zeros((0, 0)))
 
 
 def run_ours(name, c):
@@ -143,6 +144,11 @@ def compare(name, c):
     E = ref["E"].reshape(4, -1)
     ours_E = np.array([np.array(r["US"]) + np.array(r["UF"]) + np.array(r["UB"]), r["US"], r["UF"], r["UB"]])[:, 1:]
     res["E_rel"] = float(np.abs(ours_E[:, :k] - E[:, :k]).max() / max(np.abs(E).max(), 1e-300))
+    if "Sx" in ref.files and ref["Sx"].size:
+        nb = len(m["bars"])
+        S = fr[1:, 2 * nd + 3 * r["nn"]:2 * nd + 3 * r["nn"] + nb].T
+        mS = ref["Sx"].reshape(nb, -1)
+        res["Sx_rel"] = float(np.abs(S[:, :k] - mS[:, :k]).max() / max(np.abs(mS).max(), 1e-300))
     return res
 
 

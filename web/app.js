@@ -656,6 +656,18 @@ async function loadResult() {
       G.result.add(l2);
     }
   }
+  R.barPos = null;
+  if (R.mesh.fedges && R.mesh.fedges.length) {
+    const nb = R.mesh.fedges.length;
+    R.barPos = new Float32Array(nb * 6);
+    R.barCol = new Float32Array(nb * 6);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(R.barPos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(R.barCol, 3));
+    const bl = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true }));
+    bl.userData.barLines = true;
+    G.result.add(bl);
+  }
   R.pos = pos;
   R.col = col;
   buildResultMirror();
@@ -667,7 +679,7 @@ async function loadResult() {
   const fsel = $('field');
   fsel.innerHTML = '';
   for (const f of st.result.fields) fsel.append(new Option(FIELD_LABEL[f] || f, f));
-  const pref = (kind === 'static' ? ['energyDensity'] : ['U']).find((q) => st.result.fields.includes(q));
+  const pref = (kind === 'static' ? ['barForce'] : ['U']).find((q) => st.result.fields.includes(q));
   R.field = pref || 'U';
   fsel.value = R.field;
   R.auto = true;
@@ -709,7 +721,18 @@ async function showFrame() {
     R.pos[3 * i] = p[0] + R.scale * u[0];
     R.pos[3 * i + 1] = p[1] + R.scale * u[1];
     R.pos[3 * i + 2] = p[2] + R.scale * u[2];
-    ramp((f.values[i] - lo) / span, R.col, 3 * i);
+    if (f.edge) R.col.set([0.62, 0.66, 0.72], 3 * i);
+    else ramp((f.values[i] - lo) / span, R.col, 3 * i);
+  }
+  R.edgeMode = !!f.edge;
+  if (f.edge && R.barPos) {
+    R.mesh.fedges.forEach((e, q) => {
+      for (let k = 0; k < 2; k++) {
+        const v = e[k];
+        R.barPos.set([R.pos[3 * v], R.pos[3 * v + 1], R.pos[3 * v + 2]], 6 * q + 3 * k);
+        ramp((f.edge[q] - lo) / span, R.barCol, 6 * q + 3 * k);
+      }
+    });
   }
   if (R.mid && R.pos2) {
     R.mid.computeVertexNormals();
@@ -736,7 +759,8 @@ async function showFrame() {
   followSymbols();
   $('frameLabel').textContent = `${R.index + 1}/${st.result.frames.length} · ${f.label}`;
   $('legend').hidden = !$('showResult').checked;
-  $('legendTitle').textContent = (FIELD_LABEL[R.field] || R.field) + (R.field.endsWith('Density') ? ' · 전 스텝 최대 기준' : '');
+  $('legendTitle').textContent = (FIELD_LABEL[R.field] || R.field) + (R.field.endsWith('Density') || R.field.startsWith('bar') ? ' · 전 스텝 최대 기준' : '');
+  applyVisibility();
   const ticks = $('legendTicks');
   ticks.innerHTML = '';
   for (let k = 4; k >= 0; k--) ticks.append(el('span', '', fmt(lo + (span * k) / 4)));
@@ -818,7 +842,8 @@ function applyVisibility() {
     c.visible = true;
     if (c.userData.thick) c.visible = tk;
     if (c.userData.thin) c.visible = !tk;
-    if (c.userData.meshLines) c.visible = c.visible && ml;
+    if (c.userData.meshLines) c.visible = c.visible && ml && !R.edgeMode;
+    if (c.userData.barLines) c.visible = !!R.edgeMode;
   });
   $('meshLinesWrap').hidden = !R.mesh;
   G.crease.visible = !!st && !!st.spec && (!res || BH.edit);
@@ -827,7 +852,7 @@ function applyVisibility() {
   G.mirror.visible = hasSym && $('showMirror').checked && !res;
   G.arrows.visible = res && $('showSymbols').checked;
   followSymbols();
-  for (const c of G.result.children) if (c.userData.mirror) c.visible = hasSym && $('showMirror').checked && (!c.userData.meshLines || ml);
+  for (const c of G.result.children) if (c.userData.mirror) c.visible = hasSym && $('showMirror').checked && (!c.userData.meshLines || (ml && !R.edgeMode)) && (!c.userData.barLines || !!R.edgeMode);
 }
 
 function describeBC(b) {
@@ -1970,7 +1995,7 @@ function bind() {
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
-const FIELD_LABEL = { U: '변위 크기 |u| (mm)', ux: '변위 ux (mm)', uy: '변위 uy (mm)', uz: '변위 uz (mm)', energyDensity: '저장 에너지 밀도 (N·mm/mm²)', foldDensity: '접힘 에너지 밀도', bendDensity: '휨 에너지 밀도', stretchDensity: '바 에너지 밀도',  Nmax: '막력 최대 주값 (N/mm)', Nmin: '막력 최소 주값 (N/mm)', Mmax: '휨모멘트 최대 주값 (N·mm/mm)', Mmin: '휨모멘트 최소 주값 (N·mm/mm)', energyDensity: '변형 에너지 밀도 (N·mm/mm²)', panelEnergy: '패널 저장 에너지 (N·mm)', bendDensity: '패널 휨 에너지 밀도', foldDensity: '접힘 에너지 밀도', stretchDensity: '바 늘림 에너지 밀도', plasticDensity: '누적 소성 일 밀도', foldRotation: '접힘 회전 (도)', barStrain: '바 변형률', hingePlastic: '힌지 소성 회전 (도)', barPlastic: '바 소성 변형률' };
+const FIELD_LABEL = { barForce: '바 축력 합 Σ|Sx·A| (N) · MERLIN2 Vertex', barStress: '바 응력 Sx (MPa) · MERLIN2 Edge', U: '변위 크기 |u| (mm)', ux: '변위 ux (mm)', uy: '변위 uy (mm)', uz: '변위 uz (mm)', energyDensity: '저장 에너지 밀도 (바+접힘+휨, N·mm/mm²)', foldDensity: '접힘 에너지 밀도 (N·mm/mm²)', bendDensity: '패널 휨 에너지 밀도 (N·mm/mm²)', stretchDensity: '바 에너지 밀도 (N·mm/mm²)',  Nmax: '막력 최대 주값 (N/mm)', Nmin: '막력 최소 주값 (N/mm)', Mmax: '휨모멘트 최대 주값 (N·mm/mm)', Mmin: '휨모멘트 최소 주값 (N·mm/mm)', panelEnergy: '패널 저장 에너지 (N·mm)', plasticDensity: '누적 소성 일 밀도', foldRotation: '접힘 회전 (도)', barStrain: '바 변형률', hingePlastic: '힌지 소성 회전 (도)', barPlastic: '바 소성 변형률' };
 const BH = { edges: [], note: '', sel: new Set(), edit: false, drag: null, k3: null };
 const BH_COL = { fold: 0xff6b5e, bend: 0x5ec8ff, cut: 0xffd84a, boundary: 0x7d8a99 };
 const BH_NAME = { fold: '접힘', bend: '휨', cut: '자름', boundary: '경계' };
