@@ -1,0 +1,502 @@
+{
+ "miura_fold": {
+  "title": "1. 미우라 3x3 접기 (강제 변위, N5B8 자동 강성)",
+  "file": "miura_3x3.obj",
+  "note": "x 최소 변을 x 고정, 한 점을 완전 고정, x 최대 변을 x 방향으로 -15 mm 밀어 접습니다. MERLIN2 강제 변위 방식(감쇠 뉴턴).",
+  "prompts": [
+   "x 최대 변을 x 방향으로 -15 mm",
+   "1번 점 변위-힘 그래프",
+   "접힘 에너지 그래프",
+   "해석 실행"
+  ],
+  "ops": [
+   {
+    "op": "set_material",
+    "E": 1000,
+    "nu": 0.3,
+    "thickness": 0.25,
+    "rho": 1e-09
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "plane": {
+      "axis": "x",
+      "at": "min"
+     }
+    },
+    "dofs": [
+     1
+    ],
+    "name": "x 최소 변 x 구속"
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "nodes": [
+      0
+     ]
+    },
+    "type": "fixed",
+    "name": "기준점 고정"
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "nodes": [
+      6
+     ]
+    },
+    "dofs": [
+     3
+    ],
+    "name": "z 구속"
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "plane": {
+      "axis": "x",
+      "at": "max"
+     }
+    },
+    "dofs": [
+     1
+    ],
+    "value": -15.0,
+    "name": "강제 변위"
+   },
+   {
+    "op": "set_step",
+    "type": "static",
+    "increments": 100
+   }
+  ]
+ },
+ "hexagon_twist": {
+  "title": "2. 육각형 패널 비틀기 (MERLIN2 PolygonTest, 호장법)",
+  "file": "hexagon.obj",
+  "note": "MERLIN2 PolygonTest 와 같은 조건: 마일라 E 5 GPa, ν 0.35, t 0.127. 5번 점에 -z 1 N, 호장법(MGDCM). 5번 점 z 변위 12 mm 에서 정지.",
+  "prompts": [
+   "5번 점 변위-힘 그래프",
+   "해석 실행"
+  ],
+  "ops": [
+   {
+    "op": "set_material",
+    "E": 5000,
+    "nu": 0.35,
+    "thickness": 0.127
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "nodes": [
+      0
+     ]
+    },
+    "type": "fixed"
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "nodes": [
+      1
+     ]
+    },
+    "dofs": [
+     1,
+     3
+    ]
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "nodes": [
+      3
+     ]
+    },
+    "dofs": [
+     3
+    ]
+   },
+   {
+    "op": "add_load",
+    "type": "force",
+    "select": {
+     "nodes": [
+      4
+     ]
+    },
+    "vector": [
+     0,
+     0,
+     -1
+    ]
+   },
+   {
+    "op": "set_step",
+    "type": "arclength",
+    "increments": 100,
+    "lambda0": 1e-05,
+    "lam_max": null,
+    "stop": [
+     {
+      "node": 4,
+      "dir": 2,
+      "value": 12
+     }
+    ]
+   }
+  ]
+ },
+ "kresling_cycle": {
+  "title": "3. 크레슬링 1단 반복 압축 (소성 힌지, Tang 2026)",
+  "file": "kresling.obj",
+  "note": "아래 링 고정, 위 링을 z 방향으로 -12 mm 눌렀다 되돌리기 3회. 알루미늄 두께 0.3, 접힘 힌지 탄소성 (길이당 항복 모멘트 0.05 N·mm/mm, 경화 0.05, Tang 2026 처럼 주름선을 따로 보정한 값).",
+  "prompts": [
+   "해석 실행",
+   "에너지 그래프",
+   "7번 점 변위-힘 그래프"
+  ],
+  "ops": [
+   {
+    "op": "set_material",
+    "E": 70000,
+    "nu": 0.33,
+    "thickness": 0.3,
+    "yield": 250
+   },
+   {
+    "op": "set_bh",
+    "plastic_hinge": true,
+    "fold_yield": 0.05,
+    "fold_H": 0.05,
+    "cycles": 3
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "plane": {
+      "axis": "z",
+      "at": "min"
+     }
+    },
+    "type": "fixed"
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "plane": {
+      "axis": "z",
+      "at": "max"
+     }
+    },
+    "dofs": [
+     3
+    ],
+    "value": -12.0
+   },
+   {
+    "op": "set_step",
+    "type": "static",
+    "increments": 60
+   }
+  ]
+ },
+ "simple_fold": {
+  "title": "4. 단일 주름 접기 (Tang 2026 그림 4 형상)",
+  "file": "simple_fold.obj",
+  "note": "삼각형 ABC 고정, D 점을 z 방향으로 들어 올려 주름 AB 를 접습니다. 알루미늄, 소성 힌지.",
+  "prompts": [
+   "4번 점 변위-힘 그래프",
+   "해석 실행"
+  ],
+  "ops": [
+   {
+    "op": "set_material",
+    "E": 67000,
+    "nu": 0.33,
+    "thickness": 1.0,
+    "yield": 250
+   },
+   {
+    "op": "set_bh",
+    "plastic_hinge": true,
+    "fold_yield": 2.0,
+    "fold_H": 5.0
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "nodes": [
+      0,
+      1,
+      2
+     ]
+    },
+    "type": "fixed"
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "nodes": [
+      3
+     ]
+    },
+    "dofs": [
+     3
+    ],
+    "value": 60.0
+   },
+   {
+    "op": "set_step",
+    "type": "static",
+    "increments": 100
+   }
+  ]
+ },
+ "miura_modal": {
+  "title": "5. 미우라 자유-자유 모달 (질량 포함)",
+  "file": "miura_flat.obj",
+  "note": "구속 없이 고유진동 해석. 강체 모드 6개 다음에 접힘 모드가 나옵니다 (Filipov 2017 그림 11 의 경향).",
+  "prompts": [
+   "해석 실행",
+   "모드 10개"
+  ],
+  "ops": [
+   {
+    "op": "set_material",
+    "E": 3000,
+    "nu": 0.3,
+    "thickness": 0.5,
+    "rho": 1.2e-09
+   },
+   {
+    "op": "set_step",
+    "type": "modal",
+    "modes": 10
+   }
+  ]
+ },
+ "miura_symmetry": {
+  "title": "6. 미우라 반 모델 + x 대칭면 (미러 조건)",
+  "file": "miura_half.obj",
+  "note": "전체 6x4 미우라의 왼쪽 반만 모델링하고 x 최대 변을 대칭면으로 둡니다. x 최소 변 고정, 대칭면 위 맨 위 점을 아래로 4 mm. 대칭 표시를 켜면 나머지 반을 비춰 그립니다.",
+  "prompts": [
+   "대칭 표시 꺼",
+   "해석 실행"
+  ],
+  "ops": [
+   {
+    "op": "set_material",
+    "E": 1000,
+    "nu": 0.3,
+    "thickness": 1.0
+   },
+   {
+    "op": "add_symmetry",
+    "axis": "x",
+    "at": 39.27922024247862
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "plane": {
+      "axis": "x",
+      "at": "min"
+     }
+    },
+    "type": "fixed"
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "nodes": [
+      19
+     ]
+    },
+    "dofs": [
+     3
+    ],
+    "value": -4.0
+   },
+   {
+    "op": "set_step",
+    "type": "static",
+    "increments": 40
+   }
+  ]
+ },
+ "pressure_sheet": {
+  "title": "7. 주름진 판에 압력 (Local 법선 하중, 호장법)",
+  "file": "corrugated.obj",
+  "note": "x 방향 주름 판 (l 선 = 접힘). x 양 끝 변 고정, 전체 면에 0.0005 MPa 압력을 면 법선 방향(Local)으로. 화살표 방향은 면 꼭짓점 순서로 정해지고 '방향 뒤집기'로 바꿀 수 있습니다.",
+  "prompts": [
+   "ld1 2배",
+   "전체 면에 아래로 압력 0.0005 MPa",
+   "해석 실행"
+  ],
+  "ops": [
+   {
+    "op": "set_material",
+    "E": 3000,
+    "nu": 0.3,
+    "thickness": 0.5
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "or": [
+      {
+       "plane": {
+        "axis": "x",
+        "at": "min"
+       }
+      },
+      {
+       "plane": {
+        "axis": "x",
+        "at": "max"
+       }
+      }
+     ]
+    },
+    "type": "fixed"
+   },
+   {
+    "op": "add_load",
+    "type": "pressure",
+    "select": {
+     "all": true
+    },
+    "value": 0.0005,
+    "mode": "local"
+   },
+   {
+    "op": "set_step",
+    "type": "arclength",
+    "increments": 60
+   }
+  ]
+ },
+ "kirigami_slit": {
+  "title": "8. 키리가미 슬릿 판 인장 (Khawale 2026 강성, 자름)",
+  "file": "kirigami_slit.obj",
+  "note": "가운데 슬릿 4칸을 '자름'으로, 삼각형 메쉬 강성은 Khawale (F_s 0.85, F_B 0.125). x 최소 변 고정, x 최대 변을 x 방향으로 6 mm 당깁니다. 초기 결함 0.01 mm.",
+  "prompts": [
+   "해석 실행",
+   "에너지 그래프"
+  ],
+  "ops": [
+   {
+    "op": "set_material",
+    "E": 3000,
+    "nu": 0.3,
+    "thickness": 0.3
+   },
+   {
+    "op": "set_bh",
+    "tri_bars": "khawale",
+    "edge_bend": "khawale"
+   },
+   {
+    "op": "set_crease",
+    "edges": [
+     [
+      31,
+      38
+     ],
+     [
+      38,
+      45
+     ],
+     [
+      45,
+      52
+     ],
+     [
+      52,
+      59
+     ]
+    ],
+    "type": "cut"
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "plane": {
+      "axis": "x",
+      "at": "min"
+     }
+    },
+    "type": "fixed"
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "plane": {
+      "axis": "x",
+      "at": "max"
+     }
+    },
+    "dofs": [
+     1
+    ],
+    "value": 6.0
+   },
+   {
+    "op": "add_bc",
+    "select": {
+     "plane": {
+      "axis": "x",
+      "at": "max"
+     }
+    },
+    "dofs": [
+     2,
+     3
+    ]
+   },
+   {
+    "op": "set_step",
+    "type": "static",
+    "increments": 60,
+    "imperfection": 0.01
+   }
+  ]
+ },
+ "miura_kinematic": {
+  "title": "9. 미우라 강체 접힘 기구 해석",
+  "file": "miura_kin.obj",
+  "note": "패널 강체 가정. 구동 주름 하나를 목표 이면각으로 돌려 접힘 경로를 계산합니다 (기구 자유도 1).",
+  "prompts": [
+   "해석 실행"
+  ],
+  "ops": [
+   {
+    "op": "set_material",
+    "E": 3000,
+    "nu": 0.3,
+    "thickness": 0.5
+   },
+   {
+    "op": "set_bh",
+    "drivers": [
+     [
+      1,
+      6
+     ]
+    ],
+    "targets": [
+     120
+    ]
+   },
+   {
+    "op": "set_step",
+    "type": "kinematic",
+    "increments": 60
+   }
+  ]
+ }
+}

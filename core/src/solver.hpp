@@ -16,6 +16,7 @@ struct Settings {
     int dispStep = 100;
     int maxIcr = 100;
     double lambda0 = 0.01;
+    double lamMax = -1;
     double tol = 1e-6;
     int maxIter = 50;
     bool exact = true;
@@ -29,6 +30,7 @@ struct Settings {
     bool modalDeformed = false;
     std::vector<StopRule> stop;
     std::vector<int> drivers;
+    std::vector<std::array<int, 2>> driverEdges;
     std::vector<double> targets;
     int kinSteps = 60;
 };

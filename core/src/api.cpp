@@ -168,6 +168,7 @@ bool parse(const json& j, Input& in, Settings& set, std::string& err) {
     set.dispStep = std::max(1, inum(a, "dispStep", set.dispStep));
     set.maxIcr = std::max(1, inum(a, "maxIcr", set.maxIcr));
     set.lambda0 = num(a, "lambda0", set.lambda0);
+    set.lamMax = num(a, "lamMax", set.lamMax);
     set.tol = num(a, "tol", set.tol);
     set.maxIter = inum(a, "maxIter", set.maxIter);
     set.exact = boolean(a, "exact", set.exact);
@@ -191,6 +192,8 @@ bool parse(const json& j, Input& in, Settings& set, std::string& err) {
         }
     if (a.contains("drivers"))
         for (auto& d : a["drivers"]) set.drivers.push_back(d.get<int>());
+    if (a.contains("driverEdges"))
+        for (auto& d : a["driverEdges"]) set.driverEdges.push_back({d[0].get<int>(), d[1].get<int>()});
     if (a.contains("targets"))
         for (auto& d : a["targets"]) set.targets.push_back(d.get<double>());
     return true;
@@ -232,6 +235,9 @@ json modelJson(const Analysis& A) {
     j["tris"] = T;
     j["triPanel"] = m.triPanel;
     j["panelCtr"] = m.panelCtr;
+    json P = json::array();
+    for (auto& f : m.panels) P.push_back(f);
+    j["panels"] = P;
     json E = json::array();
     for (auto& kv : m.edgeType) {
         json e;
@@ -429,8 +435,9 @@ const char* bh_kinematic(int h) {
     if (!S) return "{}";
     int mech = 0, ss = 0, rank = 0;
     std::vector<VecX> path, ang;
-    S->A.kinematics(mech, ss, rank, path, ang);
+    std::string kmsg = S->A.kinematics(mech, ss, rank, path, ang);
     json j;
+    j["error"] = kmsg;
     j["mechanisms"] = mech;
     j["selfStress"] = ss;
     j["rank"] = rank;

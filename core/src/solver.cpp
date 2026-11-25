@@ -1,6 +1,7 @@
 #include "solver.hpp"
 
 #include <Eigen/SparseLU>
+#include <Eigen/SparseCholesky>
 #include <algorithm>
 #include <set>
 #include <cstdio>
@@ -9,7 +10,7 @@ static bool dbg() { static int v = std::getenv("BH_DEBUG") ? 1 : 0; return v; }
 
 namespace bh {
 
-static bool solveFree(const SpMat& K, const std::vector<int>& fr, const MatX& rhs, MatX& sol) {
+static bool solveFree(const SpMat& K, const std::vector<int>& fr, const MatX& rhs, MatX& sol, bool sym = true) {
     int n = (int)K.rows(), nf = (int)fr.size();
     std::vector<int> map(n, -1);
     for (int i = 0; i < nf; i++) map[fr[i]] = i;
@@ -23,15 +24,32 @@ static bool solveFree(const SpMat& K, const std::vector<int>& fr, const MatX& rh
     SpMat Kf(nf, nf);
     Kf.setFromTriplets(T.begin(), T.end());
     Kf.makeCompressed();
-    Eigen::SparseLU<SpMat, Eigen::COLAMDOrdering<int>> lu;
-    lu.compute(Kf);
     sol = MatX::Zero(n, rhs.cols());
-    if (lu.info() != Eigen::Success) return false;
     MatX b(nf, rhs.cols());
     for (int i = 0; i < nf; i++) b.row(i) = rhs.row(fr[i]);
-    MatX x = lu.solve(b);
+    MatX x;
+    bool ok = false;
+    if (sym) {
+        Eigen::SimplicialLDLT<SpMat, Eigen::Lower, Eigen::AMDOrdering<int>> ld;
+        ld.compute(Kf);
+        if (ld.info() == Eigen::Success) {
+            x = ld.solve(b);
+            ok = x.allFinite();
+            if (ok) {
+                double rn = (Kf * x - b).norm(), bn = b.norm();
+                ok = rn <= 1e-8 * std::max(bn, 1e-300) || rn <= 1e-12;
+            }
+        }
+    }
+    if (!ok) {
+        Eigen::SparseLU<SpMat, Eigen::COLAMDOrdering<int>> lu;
+        lu.compute(Kf);
+        if (lu.info() != Eigen::Success) return false;
+        x = lu.solve(b);
+        if (!x.allFinite()) return false;
+    }
     for (int i = 0; i < nf; i++) sol.row(fr[i]) = x.row(i);
-    return x.allFinite();
+    return true;
 }
 
 void Analysis::setup(const Input& in, const Settings& s) {
@@ -218,9 +236,9 @@ bool Analysis::stopNow(const VecX& Uc) const {
 
 void Analysis::stepForce() {
     int nd = m.ndof();
-    if (icrm >= set.maxIcr || stopNow(U)) {
+    if (icrm >= set.maxIcr || stopNow(U) || (set.lamMax > 0 && std::abs(lmd) >= set.lamMax)) {
         done = true;
-        status = icrm >= set.maxIcr ? "max_increments" : "stop_criterion";
+        status = icrm >= set.maxIcr ? "max_increments" : (set.lamMax > 0 && std::abs(lmd) >= set.lamMax ? "load_reached" : "stop_criterion");
         return;
     }
     icrm++;
@@ -236,7 +254,7 @@ void Analysis::stepForce() {
         MatX MRS(nd, 2);
         MRS.col(0) = Fu;
         MRS.col(1) = R;
-        if (!solveFree(K, free, MRS, MUL)) {
+        if (!solveFree(K, free, MRS, MUL, !follower)) {
             err = INF;
             break;
         }
@@ -356,7 +374,7 @@ void Analysis::stepDisp() {
             SpMat K;
             evalSystem(U, sNew, R, K, nullptr);
             MatX sol;
-            if (!solveFree(K, free, R, sol)) {
+            if (!solveFree(K, free, R, sol, !follower)) {
                 err = INF;
                 break;
             }
@@ -547,6 +565,17 @@ std::string Analysis::kinematics(int& mech, int& selfStress, int& rank, std::vec
     };
     angles.push_back(foldAngles(x));
     path.push_back(x);
+    if (set.drivers.empty() && !set.driverEdges.empty()) {
+        for (auto& e : set.driverEdges) {
+            int hit = -1;
+            for (size_t i = 0; i < m.hinges.size() && hit < 0; i++) {
+                auto& h = m.hinges[i];
+                if ((h.edge[0] == e[0] && h.edge[1] == e[1]) || (h.edge[0] == e[1] && h.edge[1] == e[0])) hit = (int)i;
+            }
+            if (hit < 0) return "driver_not_found";
+            set.drivers.push_back(hit);
+        }
+    }
     if (set.drivers.empty()) return "";
     std::vector<int> fr2 = fr;
     if (fixed.empty() && !m.panels.empty()) {

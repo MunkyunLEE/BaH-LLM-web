@@ -16,7 +16,7 @@ REF = os.path.join(HERE, "ref")
 
 
 def geo(name):
-    g = json.load(open(os.path.join(MERLIN, name)))
+    g = json.load(open(os.path.join(HERE, name)))
     return np.array(g["Node"], float).tolist(), (np.array(g["Panel"], int) - 1).tolist()
 
 
@@ -34,7 +34,7 @@ def kresling(n=6, a=10.0, h=10.0, phi=11 * math.pi / 18):
 
 def cases():
     out = {}
-    V, F = read_obj(os.path.join(HERE, "GMiura_FreeformOri.obj"))
+    V, F = read_obj(os.path.join(MERLIN, "GMiura_FreeformOri.obj"))
     out["gmiura"] = dict(
         nodes=V, panels=F, supp=[[8, 1, 1, 1], [2, 0, 1, 1], [59, 1, 0, 1]], load=[[59, 0, -30, 0]],
         opt=dict(ModelType="N5B8", MaterCalib="auto", ModElastic=1e3, Poisson=0.3, Thickness=0.25, LScaleFactor=2,

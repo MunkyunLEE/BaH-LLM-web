@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BaH-LLM-web</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{"imports": {"three": "./vendor/three.module.js"}}</script>
+</head>
+<body>
+<div id="app">
+  <aside id="left">
+    <header><h1>BaH<span>·LLM</span></h1><div id="tools"></div></header>
+    <section>
+      <h2>지오메트리</h2>
+      <div class="row"><select id="example"><option value="">예제 선택…</option></select></div>
+      <div class="row three"><button id="loadPreset">예제 + 조건</button><button id="loadGeo" class="ghost">지오메트리만</button><button id="resetAll" class="ghost" title="모델·조건·결과·대화를 모두 지우고 처음 화면으로">초기화</button></div>
+      <label class="file"><input type="file" id="file" accept=".obj"><span>OBJ 올리기 (삼각형·사각형 패널, l 선 = 접힘선)</span></label>
+      <div id="modelInfo" class="info">불러온 모델이 없습니다</div>
+    </section>
+    <section>
+      <h2>해석</h2>
+      <div class="row two"><label>해석 종류<select id="stepType"><option value="static">정적 (강제 변위 → 감쇠 뉴턴, 힘만 → 호장법)</option><option value="arclength">호장법 (MGDCM)</option><option value="modal">모달 (고유진동)</option><option value="kinematic">기구 (강체 접힘)</option></select></label><label>모델<select id="bhModel"><option value="N5B8">N5B8 (MERLIN2 기본)</option><option value="N4B5">N4B5</option></select></label></div>
+      <div class="row three"><label title="강제 변위: 목표 변위를 나눌 증분 수 (MERLIN2 DispStep). 호장법: 최대 증분 수 (MaxIcr)">증분<input id="increments" type="number" min="1" value="100"></label><label>모드 수<input id="modes" type="number" min="1" value="6"></label><label title="면 법선 방향 무작위 초기 결함 크기 (mm, Khawale 2026)">초기결함<input id="imperfection" type="number" step="any" value="0"></label></div>
+      <div class="row two"><label title="호장법에서 하중 계수 λ 가 이 값에 이르면 멈춤 (1 = 입력한 하중). 비우면 증분 수까지">목표 하중 계수 λ<input id="lamMax" type="number" step="any" placeholder="없음"></label><label title="MERLIN2: auto 는 E, ν, t, L* 로 바 면적과 힌지 강성을 계산 (Filipov 2017), manual 은 직접 입력">강성 산정<select id="bhCalib"><option value="auto">자동 (재료·두께)</option><option value="manual">직접 입력</option></select></label></div>
+    </section>
+    <section>
+      <h2>재료 · 두께 <small>mm · N · MPa</small></h2>
+      <div class="row three"><label>E<input id="matE" type="number" step="any"></label><label>ν<input id="matNu" type="number" step="any"></label><label title="바 소성 (Tang 2026, 로그 변형률). 비우면 탄성 (MERLIN2 Ogden)">항복<input id="matY" type="number" step="any" placeholder="없음"></label></div>
+      <div class="row three"><label>두께 t<input id="secT" type="number" step="any"></label><label title="모달·자중에 사용 (tonne/mm³)">밀도 ρ<input id="matRho" type="number" step="any"></label><label title="항복 뒤 경화 계수 (MPa)">경화<input id="matH" type="number" step="any" min="0" placeholder="0"></label></div>
+    </section>
+    <section id="bhPanel">
+      <h2>바-힌지 <small id="bhCount"></small></h2>
+      <div class="row two"><label title="접힘 강성 길이 척도 L* (mm, Filipov 2017). K_F = 1/(L*/(L_F·k) + 1/(0.55·k·(L_F/t)^(1/3))), k = Et³/12(1-ν²). 비우면 L* = 3·L_F (MERLIN2 LScaleFactor)">L* (mm)<input id="bhLstar" type="number" step="any" min="0" placeholder="자동 3·L_F"></label><label class="check" title="기하 접촉: 면끼리 관통 방지 (IPC 장벽 + 연속 충돌 검사). 마찰·감쇠 없음. 강제 변위 해석에서만"><input type="checkbox" id="bhContact">기하 접촉</label></div>
+      <div class="row"><label class="check" title="접힘 주름을 탄소성 힌지로 (Tang 2026). 길이당 항복 모멘트 m_p = σy·t²/4"><input type="checkbox" id="bhPH">소성 힌지 (m<sub>p</sub> = σ<sub>y</sub>t²/4)</label></div>
+      <div class="row two"><label class="check" title="강제 변위를 0 → 목표 → 0 으로 여러 번 왕복"><input type="checkbox" id="bhCyc">반복 하중</label><label id="bhCycNBox">반복 횟수<input id="bhCycN" type="number" min="1" step="1" placeholder="3"></label></div>
+      <div class="row"><button id="bhEdit" type="button" title="켜면 마우스 왼쪽 드래그가 상자 선택이 됩니다. 왼→오: 완전히 들어간 엣지, 오→왼: 걸친 엣지. Shift 추가, Ctrl 제외, Esc 해제, 클릭은 한 개">주름 편집 모드 끔</button></div>
+      <div class="row four"><button class="bhType" data-t="fold" type="button">접힘</button><button class="bhType" data-t="bend" type="button">휨</button><button class="bhType" data-t="cut" type="button">자름</button><button class="bhType" data-t="auto" type="button">자동</button></div>
+      <div class="row three bhKin"><button id="bhDrivers" type="button" title="선택한 주름을 기구 해석의 구동 주름으로">구동 주름 지정</button><label title="구동 주름의 목표 이면각 (도, 평면 = 180). 여러 개면 쉼표">목표 이면각<input id="bhTargets" type="text" placeholder="예: 60"></label><button id="bhClearDrv" class="ghost" type="button">구동 해제</button></div>
+      <div id="bhSel" class="info"></div>
+      <div class="legend" id="bhLegend"><span style="color:#ff6b5e">━ 접힘</span> <span style="color:#5ec8ff">━ 휨</span> <span style="color:#ffd84a">━ 자름</span> <span style="color:#7d8a99">━ 경계</span> <span style="color:#c084fc">━ 대칭면</span> <span style="color:#ffffff">━ 선택</span></div>
+    </section>
+    <section>
+      <h2>구속 · 강제 변위 <small id="bcCount"></small></h2>
+      <div id="bcList" class="list"></div>
+      <h2>하중 <small id="ldCount"></small></h2>
+      <div id="ldList" class="list"></div>
+      <h2>대칭면 <small id="syCount"></small></h2>
+      <div id="syList" class="list"></div>
+      <div id="warnings"></div>
+      <div class="row"><button id="undo" class="ghost" type="button" disabled>되돌리기</button></div>
+    </section>
+    <section id="extraPanel" hidden>
+      <h2>부가 설정 <small id="extraCount"></small></h2>
+      <div id="extraList" class="list"></div>
+    </section>
+    <section class="run">
+      <button id="solve" class="primary">해석 실행</button>
+      <button id="cancelSolve" class="danger" type="button" hidden>해석 강제 중단</button>
+      <div class="row two"><button id="expSpec" class="ghost" type="button">스펙 JSON 저장</button><label class="file mini"><input type="file" id="impSpec" accept=".json"><span>스펙 JSON 열기</span></label></div>
+      <div id="solveMsg" class="info"></div>
+    </section>
+  </aside>
+  <main>
+    <div id="viewer">
+      <canvas id="gl"></canvas>
+      <canvas id="gizmo" width="96" height="96"></canvas>
+      <div id="hud"></div>
+      <div id="legend" hidden><div id="legendTitle"></div><div id="legendBar"></div><div id="legendTicks"></div></div>
+      <div id="viewbar">
+        <button id="fit" title="화면 맞춤">맞춤</button>
+        <label class="check"><input type="checkbox" id="showSymbols" checked>구속·하중</label>
+        <label class="check"><input type="checkbox" id="showEdges" checked>요소 경계</label>
+        <label class="check"><input type="checkbox" id="showResult" checked>결과</label>
+        <label class="check" id="meshLinesWrap"><input type="checkbox" id="showMeshLines" checked>결과 메쉬선</label>
+        <label class="check" id="mirrorWrap" title="대칭면에 비춘 나머지 반을 함께 그림 (편집: 반투명, 결과: 변형·컨투어 포함)"><input type="checkbox" id="showMirror" checked>대칭 표시</label>
+      </div>
+      <div id="resultbar" hidden>
+        <button id="play">▶</button>
+        <input id="frame" type="range" min="0" max="0" value="0">
+        <span id="frameLabel"></span>
+        <select id="field"></select>
+        <label>변형 배율<input id="scale" type="number" step="any" value="1"></label>
+        <button id="autoScale" class="ghost">자동</button>
+        <button id="savePng" class="ghost" title="지금 화면을 PNG 로 저장">PNG</button>
+        <button id="saveVideo" class="ghost" title="모든 프레임을 영상으로 저장">영상</button>
+      </div>
+    </div>
+    <div id="bottom">
+      <div id="summary"></div>
+      <div id="plots"></div>
+    </div>
+  </main>
+  <aside id="right">
+    <div class="topbar"><a id="theoryBtn" class="btn ghost" href="theory.html" target="_blank" rel="noopener">Theory · 수식과 검증</a></div>
+    <section class="llm">
+      <h2>LLM <small id="llmStatus"></small></h2>
+      <div class="row two"><label>방식<select id="llmMode"><option value="rule_first">규칙 우선 (모르면 LLM)</option><option value="auto">LLM 우선 (실패 시 규칙)</option><option value="llm">LLM만</option><option value="rule">규칙 기반만</option></select></label><label>모델<input id="llmModel" type="text" placeholder="예: gpt-4o-mini"></label></div>
+      <div class="row"><label>엔드포인트 (OpenAI 호환)<input id="llmUrl" type="text" placeholder="비워 두면 규칙 기반만 사용 · 예: https://api.openai.com/v1"></label></div>
+      <div class="row two"><label>API 키 (선택, 이 브라우저에만 저장)<input id="llmKey" type="password" placeholder="필요한 경우만"></label><button id="llmSave" class="ghost">적용 · 확인</button></div>
+      <div class="row"><button id="llmTest" class="ghost" type="button">실제 응답 테스트</button></div>
+      <div id="llmInfo" class="info"></div>
+    </section>
+    <section class="chat">
+      <h2>조건 · 결과 지시</h2>
+      <div id="chips"></div>
+      <div id="chatLog"></div>
+      <form id="chatForm"><textarea id="chatInput" rows="3" placeholder="예: 8번 절점 고정, 59번 절점을 y 방향으로 -30 mm"></textarea><button class="primary" type="submit">보내기</button></form>
+    </section>
+  </aside>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
