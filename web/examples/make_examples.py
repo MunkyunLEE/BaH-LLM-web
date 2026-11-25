@@ -197,11 +197,12 @@ write_obj("kirigami_slit.obj", V, F)
 P["kirigami_slit"] = {
     "title": "8. 키리가미 슬릿 판 인장 (Khawale 2026 강성, 자름)",
     "file": "kirigami_slit.obj",
-    "note": "가운데 슬릿 4칸을 '자름'으로, 삼각형 메쉬 강성은 Khawale (F_s 0.85, F_B 0.125). x 최소 변 고정, x 최대 변을 x 방향으로 6 mm 당깁니다. 초기 결함 0.01 mm.",
+    "note": "내부 엣지는 모두 '휨', 가운데 슬릿 4칸은 '자름', 삼각형 메쉬 강성은 Khawale (F_s 0.85, F_B 0.125). x 최소 변 고정, x 최대 변을 x 방향으로 6 mm 당깁니다. 초기 결함 0.01 mm.",
     "prompts": ["해석 실행", "에너지 그래프"],
     "ops": [
         {"op": "set_material", "E": 3000, "nu": 0.3, "thickness": 0.3},
         {"op": "set_bh", "tri_bars": "khawale", "edge_bend": "khawale"},
+        {"op": "set_crease", "edges": "all", "type": "bend"},
         {"op": "set_crease", "edges": [list(e) for e in cut], "type": "cut"},
         {"op": "add_bc", "select": {"plane": {"axis": "x", "at": "min"}}, "type": "fixed"},
         {"op": "add_bc", "select": {"plane": {"axis": "x", "at": "max"}}, "dofs": [1], "value": 6.0},

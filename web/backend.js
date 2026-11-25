@@ -176,9 +176,9 @@ export function applyOps(spec0, ops, geo) {
     } else if (k === 'set_crease') {
       const ty = String(op.type || 'auto');
       if (!['fold', 'bend', 'cut', 'auto'].includes(ty)) throw new Error('주름 종류는 fold, bend, cut, auto 중 하나여야 합니다');
-      const es = op.edges || [];
-      if (!es.length) throw new Error('바꿀 엣지가 없습니다');
       const known = g ? panelEdges(g) : null;
+      const es = op.edges === 'all' ? [...known.entries()].filter(([, f]) => f.length === 2).map(([k]) => k) : op.edges || [];
+      if (!es.length) throw new Error('바꿀 엣지가 없습니다');
       for (const e of es) {
         const key = typeof e === 'string' ? e : edgeKey(+e[0], +e[1]);
         if (known && !known.has(key)) throw new Error(`모델에 없는 엣지입니다: ${key}`);
@@ -314,6 +314,10 @@ export function warnings(spec, geo) {
   for (const b of spec.bcs) for (const d of b.dofs) fixed.add(d);
   for (const s of spec.symmetry) fixed.add(AXN[s.axis] + 1);
   const st = spec.step.type;
+  if (st === 'kinematic') {
+    if (!(spec.bh.drivers || []).length) out.push('기구 해석: 구동 주름이 없어 자유도 수만 계산합니다 (주름 편집 모드에서 접힘 주름을 고르고 "구동 주름 지정")');
+    return out;
+  }
   if (!spec.bcs.length && !spec.symmetry.length && st !== 'modal') out.push('구속이 없습니다 (강체 운동 가능)');
   else if (st !== 'modal' && [1, 2, 3].some((d) => !fixed.has(d))) out.push('병진 자유도 중 구속되지 않은 방향이 있습니다: ' + [1, 2, 3].filter((d) => !fixed.has(d)).map((d) => 'xyz'[d - 1]).join(', '));
   const moving = spec.bcs.some((b) => b.value);
@@ -651,7 +655,11 @@ function buildResult(kind, mode, model, result, frames, elapsed) {
   res.nodeArea = nodeAreas(model);
   const labels = [];
   for (let i = 0; i < count; i++) {
-    if (kind === 'static') labels.push(mode === 'force' ? `스텝 ${i} · λ=${(+result.lam[i]).toPrecision(4)}` : `스텝 ${i} · 진행 ${(100 * result.s[i] / Math.max(1, ...[1])).toFixed(1)}%`);
+    if (kind === 'static') {
+      const legs = S.spec.bh.cycles > 0 ? Math.round(Math.max(...result.s)) : 1;
+      const sv = result.s[i];
+      labels.push(mode === 'force' ? `스텝 ${i} · λ=${(+result.lam[i]).toPrecision(4)}` : legs > 1 ? `스텝 ${i} · 구간 ${Math.min(legs, Math.floor(sv) + (sv % 1 > 0 ? 1 : 0)) || 1}/${legs}` : `스텝 ${i} · 진행 ${(100 * sv).toFixed(1)}%`);
+    }
     else if (kind === 'modal') labels.push(`모드 ${i + 1}${result.freq ? ` · ${(+result.freq[i]).toPrecision(4)} Hz` : ''}`);
     else labels.push(`경로 ${i}`);
   }
@@ -660,10 +668,10 @@ function buildResult(kind, mode, model, result, frames, elapsed) {
   if (kind === 'static') {
     const L = count - 1;
     let umax = 0;
-    for (let k = 0; k < nn; k++) umax = Math.max(umax, Math.hypot(frames[L * stride + 3 * k], frames[L * stride + 3 * k + 1], frames[L * stride + 3 * k + 2]));
+    for (let f = 0; f < count; f++) for (let k = 0; k < nn; k++) umax = Math.max(umax, Math.hypot(frames[f * stride + 3 * k], frames[f * stride + 3 * k + 1], frames[f * stride + 3 * k + 2]));
     summary['풀이'] = mode === 'force' ? '호장법 (MGDCM)' : '강제 변위 (감쇠 뉴턴)';
     summary['증분'] = L;
-    summary['최대 변위 (mm)'] = umax;
+    summary['최대 변위 (전 스텝, mm)'] = umax;
     if (mode === 'force') summary['최종 하중 계수 λ'] = result.lam[L];
     const f = forceSeries(res);
     summary[mode === 'force' ? '최종 하중 (N)' : '최종 반력 (N)'] = f.y[L];

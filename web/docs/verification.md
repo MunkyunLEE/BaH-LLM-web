@@ -1,0 +1,20 @@
+# 검증 결과 (MERLIN2 v1.1 을 Octave 8.4 로 실행한 값과 비교)
+
+상대오차 = 최대 |차이| / 최대 |MERLIN2 값|. 바 연결은 순서까지 같은지, 증분 수는 MERLIN2 와 같은지 봅니다. 모든 예제는 `compat` (MERLIN2 버릇 재현) 를 켜고 비교했습니다.
+
+| 예제 | 내용 | 바 연결 | 바 면적 | 증분 (C++ / MERLIN2) | 변위 | 하중·반력 | 에너지 |
+|---|---|---|---|---|---|---|---|
+| gmiura | MERLIN2 GMiura_pointload (일반화 미우라, N5B8 auto, 강제 변위 200) | 같음 | 4.7e-16 | 203 / 203 | 1.2e-08 | 1.5e-09 | 7.6e-10 |
+| polygon | MERLIN2 PolygonTest (육각형, N5B8 다각형 중심점, MGDCM) | 같음 | 4.2e-16 | 29 / 29 | 2.0e-14 | 5.5e-15 | 3.9e-15 |
+| miura_force | 미우라 3x3, N5B8 auto, MGDCM, SuperLinear 휨 | 같음 | 2.9e-16 | 60 / 60 | 2.3e-02 | 2.0e-02 | 4.9e-02 |
+| miura_force_el | 같은 모델, 휨만 EnhancedLinear | 같음 | 2.9e-16 | 60 / 60 | 7.5e-08 | 5.6e-08 | 1.1e-07 |
+| miura_n4b5 | 미우라 3x3, N4B5 manual, 강제 변위 | 같음 | 0.0e+00 | 50 / 50 | 3.8e-08 | 1.5e-08 | 1.2e-08 |
+| eggbox | 에그박스 3x3, N4B5 manual (MERLIN 2016 상수), MGDCM | 같음 | 0.0e+00 | 40 / 40 | 8.1e-08 | 1.0e-08 | 1.8e-08 |
+| kresling | 크레슬링 1단 (삼각형 패널, 식 15), 강제 변위 | 같음 | 2.7e-16 | 60 / 60 | 1.6e-15 | 2.1e-12 | 4.1e-13 |
+
+- miura_force 의 2% 차이는 수식 차이가 아니라 SuperLinearBend 의 처음 강성(Δθ=0 에서 0.001k)이 MATLAB acos 반올림(1e-8)에 따라 달라지는 MERLIN2 자체의 민감성 때문입니다. 같은 모델에서 휨 법칙만 EnhancedLinear 로 바꾼 miura_force_el 은 1e-7 로 일치합니다.
+
+## 새 기능 자체 검증
+
+- 미러 대칭: 미우라 6x4 전체 모델과 x 대칭 반 모델의 변위 상대오차 1.6e-15, 전체 에너지 74.4639 / 반 모델 ×2 74.4639
+- 압력 Local 하중 강성, 바·힌지 강성, 탄소성 힌지 접선: 수치 미분과 비교 1e-11 수준 (`core/tools/fdcheck.cpp`)

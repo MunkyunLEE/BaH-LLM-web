@@ -76,7 +76,7 @@ class Clause {
 const FILLER = new RegExp(
   '^(?:' +
     [
-      '해\\s*주세요', '해\\s*줘', '해봐', '해라', '해요', '하자', '하고', '해서', '하면', '하는', '해', '주세요', '줘요', '줘', '주고', '걸어', '걸고', '가해', '넣어', '넣고', '적용', '추가', '설정', '부여', '입력', '지정', '바꿔', '변경', '수정', '으로', '에서', '에게', '부터', '까지', '이고', '이다', '좀', '이제', '우선', '먼저', '다음', '그리고', '또', '그냥', '다시', '모두', '전부', '전체', '모든', '총', '합계', '크기', '값', '만큼', '정도', '방향', '쪽', '측', '면', '변', '끝', '단', '부분', '위치', '지점', '곳', '절점', '노드', '엣지', '점', '선', '것', '하중', '힘', '구속', '조건', '경계', '해석', '모델', '구조', '형상', '재료', '요소', '을', '를', '이', '가', '은', '는', '에', '의', '로', '도', '만', '과', '와', '및', '들', '요', '다', '각', '마다', 'apply', 'add', 'set', 'the', 'to', 'at', 'on', 'of', 'in', 'a', 'and', 'please',
+      '켜', '꺼', '켜줘', '꺼줘', '켬', '끔', 'on', 'off', '보여줘', '보여', '밀어', '당겨', '눌러', '해\\s*주세요', '해\\s*줘', '해봐', '해라', '해요', '하자', '하고', '해서', '하면', '하는', '해', '주세요', '줘요', '줘', '주고', '걸어', '걸고', '가해', '넣어', '넣고', '적용', '추가', '설정', '부여', '입력', '지정', '바꿔', '변경', '수정', '으로', '에서', '에게', '부터', '까지', '이고', '이다', '좀', '이제', '우선', '먼저', '다음', '그리고', '또', '그냥', '다시', '모두', '전부', '전체', '모든', '총', '합계', '크기', '값', '만큼', '정도', '방향', '쪽', '측', '면', '변', '끝', '단', '부분', '위치', '지점', '곳', '절점', '노드', '엣지', '점', '선', '것', '하중', '힘', '구속', '조건', '경계', '해석', '모델', '구조', '형상', '재료', '요소', '을', '를', '이', '가', '은', '는', '에', '의', '로', '도', '만', '과', '와', '및', '들', '요', '다', '각', '마다', 'apply', 'add', 'set', 'the', 'to', 'at', 'on', 'of', 'in', 'a', 'and', 'please',
     ].join('|') +
     ')$'
 );
@@ -262,7 +262,7 @@ export function selection(c, geo, spec, ctx) {
   const items = Object.entries(by).map(([ax, ats]) => (ats.length === 1 ? plane(ax, ats[0]) : { or: ats.map((a) => plane(ax, a)) }));
   items.push(...others);
   if (!items.length) {
-    if (c.take('모든\\s*절점|전체\\s*절점|모델\\s*전체|전체\\s*면|모든\\s*면|all nodes|everything|whole')) return { sel: { all: true }, notes };
+    if (c.take('모든\\s*(?:절점|면|패널)|전체\\s*(?:절점|면|패널)?|모델\\s*전체|all nodes|all faces|everything|whole')) return { sel: { all: true }, notes };
     return { sel: null, notes };
   }
   return { sel: items.length === 1 ? items[0] : { and: items }, notes };
@@ -520,6 +520,12 @@ function parseClause(text, geo, spec, ctx, info) {
   if (m) bh.tol = +m[1];
   if (Object.keys(bh).length) ops.push({ op: 'set_bh', ...bh });
 
+  const allE = c.take('(?:모든|전체)\\s*(?:내부\\s*)?(?:엣지|주름|선|변)\\s*(?:을|를|은|는)?\\s*(접힘|폴드|fold|휨|굽힘|벤딩|bend|자동|auto)');
+  if (allE) {
+    const ty = /접힘|폴드|fold/.test(allE[1]) ? 'fold' : /휨|굽힘|벤딩|bend/.test(allE[1]) ? 'bend' : 'auto';
+    ops.push({ op: 'set_crease', edges: 'all', type: ty });
+    c.takeall('으로|로|바꿔|변경|설정|해줘|줘');
+  }
   m = c.take('(선택(?:한|된)?\\s*(?:엣지|주름|선|변|힌지)?|이\\s*(?:엣지|주름))\\s*(?:을|를|은|는)?\\s*(접힘|폴드|fold|휨|굽힘|벤딩|bend|자름|절단|컷|cut|자동|auto)');
   if (m) {
     const ty = /접힘|폴드|fold/.test(m[2]) ? 'fold' : /휨|굽힘|벤딩|bend/.test(m[2]) ? 'bend' : /자름|절단|컷|cut/.test(m[2]) ? 'cut' : 'auto';
@@ -547,7 +553,7 @@ function parseClause(text, geo, spec, ctx, info) {
   if (m) step.lam_max = +m[1];
   if (Object.keys(step).length) ops.push({ op: 'set_step', ...step });
 
-  if (/그래프|플롯|plot|graph|그려|곡선|curve|보여|차트|chart/.test(c.w) && /에너지|변위|힘|하중|반력|처짐|energy|disp|force|λ|계수/.test(c.w)) {
+  if ((/그래프|플롯|plot|graph|그려|곡선|curve|보여|차트|chart/.test(c.w) && /에너지|변위|힘|하중|반력|처짐|energy|disp|force|λ|계수/.test(c.w)) || /변위\s*[-–~/]\s*(?:힘|하중|반력|에너지)|(?:힘|하중|반력|에너지)\s*[-–~/]\s*변위/.test(c.w)) {
     const p = parsePlot(c, geo, spec, ctx);
     if (p) {
       if (p._needSel) {
@@ -560,7 +566,7 @@ function parseClause(text, geo, spec, ctx, info) {
   }
 
   const sym = c.take('(?<![a-z])([xyz])\\s*(?:축)?\\s*(?:=\\s*' + NUM + ')?\\s*(?:평면)?\\s*(?:에\\s*대해|기준)?\\s*(?:대칭|미러|mirror|symm)');
-  if (sym || c.has('대칭\\s*(?:면|조건|경계)|미러\\s*(?:조건|경계)')) {
+  if (sym || c.has('대칭|미러|mirror|symmetr')) {
     let axis = sym ? sym[1] : null;
     c.take('대칭\\s*(?:면|조건|경계)?|미러|mirror');
     const { sel } = selection(c, geo, spec, ctx);
@@ -586,11 +592,14 @@ function parseClause(text, geo, spec, ctx, info) {
   const qp = q.filter((x) => x.kind === 'pressure');
   const ql = q.filter((x) => x.kind === 'length');
   const gravity = c.take('자중|자체\\s*중량|중력|self\\s*-?\\s*weight|gravity');
-  const isFix = c.take('고정|구속|지지|막아|막고|잡아|핀\\s*(?:지지|지점)?|pin(?:ned)?|fix(?:ed)?|clamp|constrain|support');
+  const fixPat = '고정|구속|지지|막아|막고|잡아|핀\\s*(?:지지|지점)?|pin(?:ned)?|fix(?:ed)?|clamp|constrain|support';
+  const fixing = c.has(fixPat) && !qf.length && !qp.length;
+  const dofs = fixing ? bcDofs(c) : [];
+  const isFix = c.take(fixPat);
   const perNode = !!c.take('(?:각\\s*)?절점\\s*마다|각\\s*절점(?:에)?|절점\\s*당|per\\s*node|each\\s*node|마다');
-  const isPress = qp.length || c.take('압력|pressure|분포\\s*하중|수압|공기압');
-  const local = !!c.take('(?:면에\\s*)?수직(?:으로|하게)?|법선(?:\\s*방향)?(?:으로)?|팔로워|follower|local|면\\s*방향|안쪽으로|바깥쪽으로');
-  const dofs = bcDofs(c);
+  const pw = c.take('압력|pressure|분포\\s*하중|수압|공기압');
+  const isPress = qp.length || pw;
+  const local = !!c.take('수직(?:으로|하게)?|법선(?:\\s*방향)?(?:으로)?|팔로워|follower|local|면\\s*방향|안쪽으로|바깥쪽으로');
   let dir = direction(c);
   const { sel, notes } = selection(c, geo, spec, ctx);
   msgs.push(...notes);
@@ -623,6 +632,10 @@ function parseClause(text, geo, spec, ctx, info) {
       return { ops, msgs: [...msgs, '하중을 줄 위치를 알려 주세요 (예: 59번 절점, 윗면, 선택한 절점)'] };
     }
     if (!dir) dir = looseAxis(c);
+    if (!dir) {
+      info.ask = true;
+      return { ops, msgs: [...msgs, '하중 방향을 알려 주세요 (예: 아래로, z 방향, -y 방향)'] };
+    }
     const val = qf[0].value;
     const v = dir.vec.map((x) => (dir.literal && qf[0].signed ? x * val : x * Math.abs(val)));
     ops.push({ op: 'add_load', type: 'force', vector: v, select: sel, ...(perNode ? { per_node: true } : {}) });
