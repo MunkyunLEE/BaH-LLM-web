@@ -963,7 +963,7 @@ export async function api(path, opts = {}) {
     if (!ex) throw new Error(tl('예제가 없습니다'));
     const text = await (await fetch('examples/' + ex.file)).text();
     setModel(parseOBJ(text, ex.file));
-    const ops = +q.get('preset') ? ex.ops : ex.ops.filter((o) => o.op.startsWith('set_'));
+    const ops = +q.get('preset') ? ex.ops : ex.ops.filter((o) => o.op === 'set_crease');
     if (ops.length) {
       const r = applyOps(S.spec, ops, S.geo);
       S.spec = r.spec;

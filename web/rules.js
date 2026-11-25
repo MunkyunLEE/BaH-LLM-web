@@ -517,6 +517,24 @@ function parseClause(text, geo, spec, ctx, info) {
     }
   }
 
+  {
+    const st = {};
+    const sm = c.take('(\\d+)\\s*번\\s*(?:절점|점|노드)\\s*(?:의)?\\s*([xyz])\\s*(?:방향)?\\s*변위\\s*(?:가|이)?\\s*' + NUM + '\\s*(?:mm)?\\s*(?:에서|되면|이면|에|까지)\\s*(?:정지|멈춤|멈춰|중단|그만)') || c.take('stop\\s*(?:when|at|once)?\\s*node\\s*(\\d+)\\s*(?:\'s)?\\s*([xyz])\\s*-?\\s*(?:displacement|disp)?\\s*(?:reaches|=|of|is|at)?\\s*' + NUM + '\\s*(?:mm)?');
+    if (sm) {
+      const nd = +sm[1] - 1;
+      if (!(nd >= 0 && nd < geo.nodes.length)) {
+        info.ask = true;
+        return { ops, msgs: [tl('없는 절점입니다: {v}', { v: sm[1] })] };
+      }
+      st.stop = [{ node: nd, dir: 'xyz'.indexOf(sm[2]), value: Math.abs(+sm[3]) }];
+      msgs.push(tl('정지 조건: 절점 #{n} {a} 변위 크기 {v} mm', { n: sm[1], a: sm[2], v: Math.abs(+sm[3]) }));
+    }
+    if (c.take('(?:정지\\s*조건|stop\\s*(?:criterion|condition|rule)s?)\\s*(?:을|를)?\\s*(?:없애|지워|빼|삭제|해제|off|remove|clear)')) st.stop = [];
+    const lm = c.take('(?:초기|첫\\s*증분|시작)\\s*(?:하중\\s*)?(?:계수|λ|lambda)\\s*(?:을|를|=|:)?\\s*' + NUM) || c.take('(?:initial|first|starting)\\s*(?:load\\s*)?(?:factor|λ|lambda|increment)\\s*(?:of|=|to|is)?\\s*' + NUM) || c.take('(?:λ|lambda)\\s*0\\s*(?:=|:)?\\s*' + NUM);
+    if (lm) st.lambda0 = +lm[1];
+    if (c.take('(?:목표\\s*)?하중\\s*계수\\s*(?:제한)?\\s*(?:없이|없음|없애|해제|빼)|(?:no|without|remove)\\s+(?:target\\s+)?(?:load\\s+factor|λ|lambda)(?:\\s+limit)?')) st.lam_max = null;
+    if (Object.keys(st).length) ops.push({ op: 'set_step', ...st });
+  }
   const mat = {};
   for (const [pat, ko, en, E, nu, rho, fy] of MATERIALS)
     if (c.take('(?<![a-z가-힣])(?:' + pat + ')(?![a-z])')) {

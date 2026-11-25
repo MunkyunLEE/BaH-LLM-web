@@ -2474,5 +2474,107 @@
    "ask": false,
    "run": false
   }
+ },
+ {
+  "text": "초기 하중 계수 20",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "lambda0": 20
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "목표 하중 계수 없이",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "lam_max": null
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "7번 점 z 변위 28.8 mm 에서 정지",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "stop": [
+      {
+       "node": 6,
+       "dir": 2,
+       "value": 28.8
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "initial load factor 20",
+  "lang": "en",
+  "same": "초기 하중 계수 20",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "lambda0": 20
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "no target load factor",
+  "lang": "en",
+  "same": "목표 하중 계수 없이",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "lam_max": null
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "stop when node 7 z displacement reaches 28.8",
+  "lang": "en",
+  "same": "7번 점 z 변위 28.8 mm 에서 정지",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_step",
+     "stop": [
+      {
+       "node": 6,
+       "dir": 2,
+       "value": 28.8
+      }
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
  }
 ]

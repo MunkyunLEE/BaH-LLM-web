@@ -529,4 +529,6 @@ export const EN = {
   '그래프 추가: 주름 {v} 누적 소성 회전': 'Plot added: accumulated plastic rotation of crease {v}',
   'N·mm/mm': 'N·mm/mm',
   'N·mm/rad/mm': 'N·mm/rad/mm',
+  '없는 절점입니다: {v}': 'No such node: {v}',
+  '정지 조건: 절점 #{n} {a} 변위 크기 {v} mm': 'Stop criterion: node #{n} {a} displacement magnitude {v} mm',
 };
