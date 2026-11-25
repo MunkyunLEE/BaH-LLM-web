@@ -456,6 +456,38 @@ function creaseType(s) {
 const TYPEW = g([V.FOLDT, V.BENDT, V.CUTT, V.AUTOT].join('|'));
 const CLEAR_KEY = [[/구속|support|bc|constraint/, 'bcs'], [/하중|load/, 'loads'], [/그래프|plot|graph/, 'plots'], [/대칭|symmetr/, 'symmetry'], [/주름|crease/, 'creases']];
 
+function parseAxes(c) {
+  const U = '\\s*(?:mm|n·mm|n|°|도|deg|kn|mpa|n\\*mm)?';
+  const RG = NUM + U + '\\s*(?:~|～|〜|to|에서|부터|\\.\\.|…)\\s*' + NUM + U + '\\s*(?:까지)?';
+  const ctxw = '(?:축|axis|범위|range|lim(?:its?)?|그래프|플롯|plot|graph|스케일|scale)';
+  const hasCtx = c.has('\\[') || c.has(ctxw);
+  const re = (a) => '(?<![a-z])' + a + '\\s*(?:축|-?\\s*axis)?\\s*(?:범위|range|lim(?:its?)?)?\\s*(?:을|를|는|=|:)?\\s*[\\[(]?\\s*' + RG + '\\s*[\\])]?';
+  const auto = c.has('(?:축|axis|스케일|scale|범위|range)\\s*(?:을|를)?\\s*(?:자동|auto|reset|초기화|되돌려)|auto\\s*-?\\s*scale|autoscale');
+  const mx = hasCtx ? c.take(re('x')) : null;
+  const my = hasCtx ? c.take(re('y')) : null;
+  if (!mx && !my && !auto) return null;
+  const op = { op: 'set_axes' };
+  const id = c.take('(?<![a-z])pl\\s*(\\d+)');
+  if (id) op.id = 'pl' + id[1];
+  else if (c.take('모든\\s*그래프|전체\\s*그래프|all\\s*(?:the\\s*)?(?:plots|graphs)')) op.id = 'all';
+  else if (c.take('스텝\\s*-\\s*힘|step\\s*-\\s*force|(?:기본\\s*)?힘\\s*그래프|force\\s*plot')) op.id = 'auto_f';
+  else if (c.take('스텝\\s*-\\s*에너지|step\\s*-\\s*energy|(?:기본\\s*)?에너지\\s*그래프|energy\\s*plot')) op.id = 'auto_e';
+  else if (c.take('소성\\s*(?:회전)?\\s*그래프|plastic\\s*(?:rotation)?\\s*plot')) op.id = 'auto_p';
+  const pair = (m) => {
+    const a = +m[1], b = +m[2];
+    return [Math.min(a, b), Math.max(a, b)];
+  };
+  if (auto && !mx && !my) {
+    c.take('(?:축|axis|스케일|scale|범위|range)\\s*(?:을|를)?\\s*(?:자동|auto|reset|초기화|되돌려)|auto\\s*-?\\s*scale|autoscale');
+    Object.assign(op, { x: null, y: null });
+  }
+  if (mx) op.x = pair(mx);
+  if (my) op.y = pair(my);
+  c.takeall('그래프|플롯|plot|graph|축|axis|범위|range|스케일|scale|으로|로|맞춰|설정|바꿔|해줘|줘|set|to|the|of');
+  const desc = [mx ? `x [${op.x.join(' ~ ')}]` : '', my ? `y [${op.y.join(' ~ ')}]` : ''].filter(Boolean).join(' · ') || tl('자동');
+  return { ops: [op], msgs: [tl('그래프 축 범위: {v}', { v: desc }) + (op.id ? ` (${op.id})` : '')] };
+}
+
 function parseClause(text, geo, spec, ctx, info) {
   const c = new Clause(text);
   const ops = [];
@@ -468,6 +500,8 @@ function parseClause(text, geo, spec, ctx, info) {
     info.answered = true;
     return { ops, msgs: [help()] };
   }
+  const ax = parseAxes(c);
+  if (ax) return ax;
   const ans = (R(V.ASK).test(c.w) || (R(V.DOF_Q).test(c.w) && /몇|얼마|알려|how many|what/.test(c.w))) && !R(g(V.PLOT)).test(c.w) ? answer(new Clause(c.w), ctx) : null;
   if (ans) {
     info.answered = true;

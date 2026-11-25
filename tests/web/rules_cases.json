@@ -2576,5 +2576,119 @@
    "ask": false,
    "run": false
   }
+ },
+ {
+  "text": "X[0~100mm] Y [-100~100N]",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_axes",
+     "x": [
+      0,
+      100
+     ],
+     "y": [
+      -100,
+      100
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "힘 그래프 y -400~400",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_axes",
+     "id": "auto_f",
+     "y": [
+      -400,
+      400
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "축 자동",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_axes",
+     "x": null,
+     "y": null
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "plot x range 0 to 100 y range -100 to 100",
+  "lang": "en",
+  "same": "X[0~100mm] Y [-100~100N]",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_axes",
+     "x": [
+      0,
+      100
+     ],
+     "y": [
+      -100,
+      100
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "force plot y -400 to 400",
+  "lang": "en",
+  "same": "힘 그래프 y -400~400",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_axes",
+     "id": "auto_f",
+     "y": [
+      -400,
+      400
+     ]
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
+ },
+ {
+  "text": "autoscale axes",
+  "lang": "en",
+  "same": "축 자동",
+  "expect": {
+   "ops": [
+    {
+     "op": "set_axes",
+     "x": null,
+     "y": null
+    }
+   ],
+   "ok": true,
+   "ask": false,
+   "run": false
+  }
  }
 ]

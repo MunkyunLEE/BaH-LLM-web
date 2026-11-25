@@ -23,7 +23,7 @@ OPS:
  {"op":"set_material","E":MPa,"nu":..,"rho":tonne/mm3,"yield":MPa|null,"hardening":MPa,"thickness":mm}
  {"op":"set_bh", fields...}  "model":"N5B8"|"N4B5", "calib":"auto"|"manual", "Lstar":mm|null (absolute L*), "Lstar_ratio":L*/L_F (default 3), "contact":bool, "gap":mm, "plastic_hinge":bool (fold yield moment sigma_y t^2/4), "fold_yield":N*mm/mm, "fold_H", "bend_yield", "bend_H", "cycles":int, "cycle_back":mm, "compat":bool (reproduce MERLIN2 v1.1 quirks), "tri_bars":"merlin2"|"woodruff"|"khawale", "edge_bend":"woodruff"|"khawale", "fold_k","bend_k","bar_area" (manual mode), "use_mass":bool, "tol":deg, "drivers":["a-b"], "targets":[deg]
  {"op":"set_crease","edges":[[a,b],...],"type":"fold"|"bend"|"cut"|"auto"}   0-based node ids of input panel edges
- {"op":"set_step","type":"static"|"arclength"|"modal"|"kinematic","increments":int,"modes":int,"imperfection":mm,"lam_max":number}
+ {"op":"set_step","type":"static"|"arclength"|"modal"|"kinematic","increments":int,"modes":int,"imperfection":mm,"lam_max":number|null (target load factor, null = none),"lambda0":number (arc-length first load factor),"stop":[{"node":0-based,"dir":0|1|2,"value":mm}] (stop when |u| reaches value)}
    static: prescribed displacements -> damped Newton (MERLIN2 Displacement); only forces -> MGDCM arc-length (MERLIN2 Force). arclength forces MGDCM.
  {"op":"scale_geometry","factor":number}   scale all coordinates (e.g. m -> mm = 1000)
  {"op":"set_view","scale":number,"mirror":bool}   display only: deformation scale, show mirrored half
@@ -32,6 +32,7 @@ QUANTITY: {"quantity":"step"|"lam"|"energy.total"|"energy.bar"|"energy.fold"|"en
        or nodal: {"quantity":"u"|"ux"|"uy"|"uz"|"force.x"|"force.y"|"force.z","select":SELECT}  (u = mean over nodes, force = sum of nodal force = reaction at supports / applied load at loaded nodes)
        or crease dihedral angle in degrees: {"quantity":"angle","select":{"edge":"a-b"}}
  {"op":"add_plot","type":"space3","edges":["a-b","c-d","e-f"]}   3D solution space of three crease dihedral angles (rigid folding paths + current analysis path)
+ {"op":"set_axes","id":"pl1"|"auto_e"|"auto_f"|"auto_p"|"all","x":[min,max]|null,"y":[min,max]|null}   plot axis range; null = auto; omit id = last added plot (else step-force); auto_e step-energy, auto_f step-force, auto_p plastic rotation
 Edge keys "a-b" use 0-based node indices with a<b; the user speaks 1-based ("2-7 crease" = "1-6").
 Degree-of-freedom analysis: set_step kinematic with set_bh drivers [] (shows mechanism count and mechanism modes). Kinematic path: set_bh drivers ["a-b"], targets [deg] + set_step kinematic.
 Stiffness-only eigen modes: set_bh use_mass false + set_step modal.

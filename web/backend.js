@@ -18,6 +18,7 @@ export function defaultSpec() {
     symmetry: [],
     step: { type: 'static', increments: 100, modes: 6, imperfection: 0, lam_max: 1 },
     plots: [],
+    axes: {},
   };
 }
 
@@ -142,6 +143,7 @@ export function applyOps(spec0, ops, geo) {
       const keys = ['bcs', 'loads', 'plots', 'symmetry'];
       const n = keys.reduce((s, q) => s + spec[q].length, 0);
       for (const q of keys) spec[q] = spec[q].filter((x) => x.id !== op.id);
+      if (spec.axes) delete spec.axes[op.id];
       if (n === keys.reduce((s, q) => s + spec[q].length, 0)) throw new Error(tl("id '{v}' 를 찾을 수 없습니다", { v: op.id }));
       log.push(tl('삭제 {v}', { v: op.id }));
     } else if (k === 'clear') {
@@ -223,6 +225,27 @@ export function applyOps(spec0, ops, geo) {
       if (!item.series.length) throw new Error(tl('그래프에 series 가 없습니다'));
       spec.plots.push(item);
       log.push(tl('그래프 추가 {v}', { v: item.id }));
+    } else if (k === 'set_axes') {
+      spec.axes = spec.axes || {};
+      const custom = spec.plots.filter((q) => q.type !== 'space3');
+      const id = op.id || (custom.length ? custom[custom.length - 1].id : 'auto_f');
+      if (id !== 'all' && !/^auto_/.test(id) && !spec.plots.some((q) => q.id === id)) throw new Error(tl("id '{v}' 를 찾을 수 없습니다", { v: id }));
+      const rg = (v, f) => {
+        if (v === null) return null;
+        if (!Array.isArray(v) || v.length !== 2) throw new Error(tl('{f} 범위는 [최소, 최대] 입니다', { f }));
+        const a = num(v[0], f), b = num(v[1], f);
+        if (!(b > a)) throw new Error(tl('{f} 범위는 최소 < 최대 여야 합니다', { f }));
+        return [a, b];
+      };
+      const cur = { ...(spec.axes[id] || {}) };
+      if ('x' in op) cur.x = rg(op.x, 'x');
+      if ('y' in op) cur.y = rg(op.y, 'y');
+      if (id === 'all') for (const q of Object.keys(spec.axes)) {
+        if ('x' in op) spec.axes[q].x = cur.x;
+        if ('y' in op) spec.axes[q].y = cur.y;
+      }
+      spec.axes[id] = cur;
+      log.push(tl('그래프 축 {v}', { v: id }));
     } else if (k === 'scale_geometry') {
       const s = num(op.factor, 'factor');
       if (!(s > 0)) throw new Error(tl('배율은 0보다 커야 합니다'));
@@ -825,6 +848,12 @@ async function plotList() {
     customPlots(res, out);
   }
   if (res.kind === 'modal') customPlots(res, out);
+  const ax = S.spec.axes || {};
+  for (const p of out) {
+    const a = { ...(ax.all || {}), ...(ax[p.id] || {}) };
+    if (a.x) p.xr = a.x;
+    if (a.y) p.yr = a.y;
+  }
   return out;
 }
 

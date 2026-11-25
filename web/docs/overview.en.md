@@ -63,6 +63,7 @@ This method is not from the papers; it is ported from the earlier Python impleme
 
 - After every analysis the **step-energy** plot (total, bar US, fold UF, bend UB, plus plastic and contact when present) and the **step-force** plot appear. Modal analyses show eigenvalues or frequencies, kinematic analyses the driver dihedral angles.
 - Plots added by sentences: step-displacement of a node, displacement-force, displacement-energy, energy components, load factor, crease dihedral (`crease 2-7 angle plot`), solution space (`solution space of creases 2-7, 7-12, 6-7`).
+- Axis ranges: in auto mode the axes snap to 1-2-5 ticks, and a few spiking points (outside 3x the 3%-97% quantile span, at most 3% of the points) are left out of the range and reported as "n points off range". Set them by sentence: `X[0~100mm] Y [-100~100N]` (last added plot), `pl1 y range -200 to 200`, `force plot y -400 to 400`, `energy plot …`, `all plots …`, `autoscale axes` (op `set_axes`).
 - The default contours follow the original MERLIN2 code (`GMiura_pointload.m`, `VisualFold.m`).
 - **Sum of bar forces (MERLIN2 Vertex, default):** at each node the sum of |Sx·A| of the connected bars (N), scaled to the maximum over all steps
 - **Bar stress Sx (MERLIN2 Edge):** each bar coloured by its second Piola-Kirchhoff stress Sx, panels in grey, range ±max |Sx| over all steps

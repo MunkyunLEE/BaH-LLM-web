@@ -1167,6 +1167,32 @@ function renderSummary() {
 const COLORS = ['#4cc2ff', '#ff5fa8', '#57d9a3', '#ffc857', '#c792ea', '#ff8a5c'];
 const REFC = ['#ffffff', '#b0bec5', '#ffd54f', '#80cbc4'];
 
+function niceTicks(a, b, n) {
+  const raw = (b - a) / n;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const f = raw / p;
+  const st = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+  return { lo: Math.floor(a / st + 1e-9) * st, hi: Math.ceil(b / st - 1e-9) * st, st };
+}
+
+function robustRange(vals) {
+  const v = vals.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const n = v.length;
+  const q = (r) => v[Math.min(n - 1, Math.max(0, Math.round(r * (n - 1))))];
+  let lo = v[0], hi = v[n - 1];
+  if (n >= 8) {
+    const a = q(0.03), b = q(0.97);
+    const span = Math.max(b - a, 1e-12 * Math.max(Math.abs(a), Math.abs(b), 1));
+    const inner = v.filter((x) => x >= a - 3 * span && x <= b + 3 * span);
+    if (inner.length >= n - Math.max(2, Math.ceil(0.03 * n)) && (lo < a - 3 * span || hi > b + 3 * span)) {
+      lo = inner[0];
+      hi = inner[inner.length - 1];
+    }
+  }
+  return [lo, hi];
+}
+
 function chart(p) {
   const W = 420;
   const H = 230;
@@ -1174,55 +1200,78 @@ function chart(p) {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  let x0 = Infinity;
-  let x1 = -Infinity;
-  let y0 = Infinity;
-  let y1 = -Infinity;
-  for (const s of p.series.concat(p.refs || [])) {
-    for (const v of s.x) {
-      x0 = Math.min(x0, v);
-      x1 = Math.max(x1, v);
-    }
-    for (const v of s.y) {
-      y0 = Math.min(y0, v);
-      y1 = Math.max(y1, v);
-    }
-  }
-  if (!isFinite(x0)) return svg;
+  const all = p.series.concat(p.refs || []);
+  const xs = all.flatMap((s) => s.x);
+  const ys = all.flatMap((s) => s.y);
+  const xa = robustRange(xs);
+  const ya = robustRange(ys);
+  if (!xa || !ya) return svg;
+  let [x0, x1] = p.xr || [Math.min(...xs.filter(Number.isFinite)), Math.max(...xs.filter(Number.isFinite))];
+  let [y0, y1] = p.yr || ya;
+  if (!p.xr && xa[1] - xa[0] < (x1 - x0) * 0.2) [x0, x1] = xa;
+  if (p.xr) [x0, x1] = p.xr;
   if (x0 === x1) x1 = x0 + 1;
   if (y0 === y1) {
     y0 -= Math.abs(y0) * 0.1 || 1;
     y1 += Math.abs(y1) * 0.1 || 1;
   }
-  const py = (y1 - y0) * 0.06;
-  y0 -= py;
-  y1 += py;
+  const xt = niceTicks(x0, x1, 5);
+  const yt = niceTicks(y0, y1, 5);
+  if (!p.xr) [x0, x1] = [xt.lo, xt.hi];
+  if (!p.yr) [y0, y1] = [yt.lo, yt.hi];
   const X = (v) => m.l + ((v - x0) / (x1 - x0)) * (W - m.l - m.r);
   const Y = (v) => H - m.b - ((v - y0) / (y1 - y0)) * (H - m.t - m.b);
-  const mk = (tag, attrs, text) => {
+  const mk = (tag, attrs, text, parent) => {
     const e = document.createElementNS(ns, tag);
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
     if (text !== undefined) e.textContent = text;
-    svg.append(e);
+    (parent || svg).append(e);
     return e;
   };
-  for (let i = 0; i <= 4; i++) {
-    const yv = y0 + ((y1 - y0) * i) / 4;
-    const xv = x0 + ((x1 - x0) * i) / 4;
-    mk('line', { x1: m.l, x2: W - m.r, y1: Y(yv), y2: Y(yv), stroke: '#2a3340', 'stroke-width': 1 });
+  const cid = 'cl' + Math.random().toString(36).slice(2);
+  const cp = mk('clipPath', { id: cid });
+  mk('rect', { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b }, undefined, cp);
+  const tickVals = (a, b, t) => {
+    const out = [];
+    const k0 = Math.ceil(a / t.st - 1e-9);
+    for (let k = k0; k * t.st <= b + 1e-9 * Math.abs(t.st) && out.length < 30; k++) out.push(+(k * t.st).toPrecision(12));
+    return out;
+  };
+  for (const yv of tickVals(y0, y1, yt)) {
+    mk('line', { x1: m.l, x2: W - m.r, y1: Y(yv), y2: Y(yv), stroke: Math.abs(yv) < 1e-12 * yt.st ? '#5a6678' : '#2a3340', 'stroke-width': 1 });
     mk('text', { x: m.l - 6, y: Y(yv) + 3, 'text-anchor': 'end', 'font-size': 10, fill: '#8492a6' }, fmt(yv));
+  }
+  for (const xv of tickVals(x0, x1, xt)) {
+    mk('line', { x1: X(xv), x2: X(xv), y1: m.t, y2: H - m.b, stroke: Math.abs(xv) < 1e-12 * xt.st ? '#5a6678' : '#222a35', 'stroke-width': 1 });
     mk('text', { x: X(xv), y: H - m.b + 14, 'text-anchor': 'middle', 'font-size': 10, fill: '#8492a6' }, fmt(xv));
   }
   mk('text', { x: (m.l + W - m.r) / 2, y: H - 4, 'text-anchor': 'middle', 'font-size': 10, fill: '#8492a6' }, p.xlabel);
+  const g = mk('g', { 'clip-path': `url(#${cid})` });
+  let out = 0;
+  const inside = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+  const line = (s, attrs) => {
+    let seg = [];
+    const flush = () => {
+      if (seg.length > 1) mk('polyline', { points: seg.join(' '), fill: 'none', ...attrs }, undefined, g);
+      seg = [];
+    };
+    s.x.forEach((v, i) => {
+      const y = s.y[i];
+      if (!Number.isFinite(v) || !Number.isFinite(y)) return flush();
+      if (!inside(v, y)) out++;
+      const far = Math.abs(Y(y)) > 1e5 || Math.abs(X(v)) > 1e5;
+      if (far) return flush();
+      seg.push(`${X(v).toFixed(1)},${Y(y).toFixed(1)}`);
+    });
+    flush();
+  };
   p.series.forEach((s, k) => {
-    const pts = s.x.map((v, i) => `${X(v).toFixed(1)},${Y(s.y[i]).toFixed(1)}`).join(' ');
-    mk('polyline', { points: pts, fill: 'none', stroke: COLORS[k % COLORS.length], 'stroke-width': 1.8 });
-    if (s.x.length <= 40) s.x.forEach((v, i) => mk('circle', { cx: X(v), cy: Y(s.y[i]), r: 2.2, fill: COLORS[k % COLORS.length] }));
+    line(s, { stroke: COLORS[k % COLORS.length], 'stroke-width': 1.8 });
+    if (s.x.length <= 40) s.x.forEach((v, i) => inside(v, s.y[i]) && mk('circle', { cx: X(v), cy: Y(s.y[i]), r: 2.2, fill: COLORS[k % COLORS.length] }, undefined, g));
   });
-  (p.refs || []).forEach((s, k) => {
-    const pts = s.x.map((v, i) => `${X(v).toFixed(1)},${Y(s.y[i]).toFixed(1)}`).join(' ');
-    mk('polyline', { points: pts, fill: 'none', stroke: REFC[k % REFC.length], 'stroke-width': 1.8, 'stroke-dasharray': '5 3' });
-  });
+  (p.refs || []).forEach((s, k) => line(s, { stroke: REFC[k % REFC.length], 'stroke-width': 1.8, 'stroke-dasharray': '5 3' }));
+  const tag = [p.xr || p.yr ? tr('지정 범위') : '', out ? tr('범위 밖 {n}점', { n: out }) : ''].filter(Boolean).join(' · ');
+  if (tag) mk('text', { x: W - m.r - 4, y: m.t + 12, 'text-anchor': 'end', 'font-size': 10, fill: out ? '#f0a35c' : '#8492a6' }, tag);
   return svg;
 }
 

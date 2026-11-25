@@ -531,4 +531,10 @@ export const EN = {
   'N·mm/rad/mm': 'N·mm/rad/mm',
   '없는 절점입니다: {v}': 'No such node: {v}',
   '정지 조건: 절점 #{n} {a} 변위 크기 {v} mm': 'Stop criterion: node #{n} {a} displacement magnitude {v} mm',
+  '지정 범위': 'fixed range',
+  '범위 밖 {n}점': '{n} points off range',
+  '그래프 축 범위: {v}': 'Plot axis range: {v}',
+  '그래프 축 {v}': 'Plot axes {v}',
+  '{f} 범위는 [최소, 최대] 입니다': '{f} range must be [min, max]',
+  '{f} 범위는 최소 < 최대 여야 합니다': '{f} range needs min < max',
 };
