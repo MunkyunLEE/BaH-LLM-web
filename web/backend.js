@@ -942,7 +942,8 @@ export async function api(path, opts = {}) {
       const a = f[i], b = f[(i + 1) % f.length];
       fe.set(edgeKey(a, b), [a, b]);
     }
-    return { nodes: m.nodes, tris: m.tris, lines: [], fedges: [...fe.values()], nInput: S.geo.nodes.length, orig: m.orig };
+    const bars = m.bars && m.bars.length ? m.bars.map((b) => [b[0], b[1]]) : [...fe.values()];
+    return { nodes: m.nodes, tris: m.tris, lines: [], fedges: bars, nInput: S.geo.nodes.length, orig: m.orig };
   }
   if (p === '/api/result/frame') {
     const res = S.result;
