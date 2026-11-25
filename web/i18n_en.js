@@ -537,4 +537,8 @@ export const EN = {
   '그래프 축 {v}': 'Plot axes {v}',
   '{f} 범위는 [최소, 최대] 입니다': '{f} range must be [min, max]',
   '{f} 범위는 최소 < 최대 여야 합니다': '{f} range needs min < max',
+  '경로': 'path',
+  '점': 'point',
+  '강체 접힘 경로 {n}': 'rigid folding path {n}',
+  '{e} 이면각 (도)': '{e} dihedral (deg)',
 };

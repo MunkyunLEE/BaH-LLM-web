@@ -1301,6 +1301,16 @@ async function loadPlots() {
     if (p.error) d.append(el('div', 'perr', p.error));
     else if (p.type === '3d') {
       t.firstChild.textContent += tr(' · 기구 자유도 {n} · 이면각 (도)', { n: p.dof });
+      const csv3 = el('button', 'mini', 'CSV');
+      csv3.title = tr('이 그래프 데이터를 CSV 로 저장');
+      csv3.onclick = () => {
+        const q = (v) => (/[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v);
+        const rows = [[tr('경로'), tr('점'), ...p.edges.map((e) => tr('{e} 이면각 (도)', { e }))].map(q).join(',')];
+        p.paths.forEach((path, k) => path.forEach((pt, i) => rows.push([q(tr('강체 접힘 경로 {n}', { n: k + 1 })), i, ...pt].join(','))));
+        (p.main || []).forEach((pt, i) => rows.push([q(p.mainName), i, ...pt].join(',')));
+        download(URL.createObjectURL(new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv' })), `${p.title}.csv`);
+      };
+      t.append(csv3);
       box.append(d);
       plot3d(p, d);
       continue;
