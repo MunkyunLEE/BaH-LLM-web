@@ -425,14 +425,18 @@ function buildSymbols() {
     }
     const pg = new THREE.BufferGeometry();
     pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(sample(bc.nodes.length, 3000).flatMap((k) => nodes[bc.nodes[k]])), 3));
-    G.symbols.add(new THREE.Points(pg, new THREE.PointsMaterial({ color: col, size: rot.length ? 9 : 6, sizeAttenuation: false, depthTest: false })));
+    const bp = new THREE.Points(pg, new THREE.PointsMaterial({ color: col, size: rot.length ? 9 : 6, sizeAttenuation: false, depthTest: false }));
+    bp.userData.followPts = sample(bc.nodes.length, 3000).map((k) => bc.nodes[k]);
+    G.symbols.add(bp);
     if (bc.value !== 0) {
       const d = bc.dofs.find((x) => x <= 3);
       if (d) {
         const dir = AX[d - 1].clone().multiplyScalar(Math.sign(bc.value));
         for (const k of sample(bc.nodes.length, 40)) {
           const p = new THREE.Vector3(...nodes[bc.nodes[k]]);
-          G.symbols.add(new THREE.ArrowHelper(dir, p.clone().sub(dir.clone().multiplyScalar(s * 3)), s * 3, col, s, s * 0.5));
+          const a = new THREE.ArrowHelper(dir, p.clone().sub(dir.clone().multiplyScalar(s * 3)), s * 3, col, s, s * 0.5);
+          a.userData.follow = { node: bc.nodes[k], back: s * 3, dir };
+          G.symbols.add(a);
         }
       }
     }
@@ -510,23 +514,51 @@ function buildSymbols() {
       a.traverse((o) => {
         if (o.material) o.material.depthTest = false;
       });
+      a.userData.follow = { node: ld.nodes[k], back: len, dir };
       G.symbols.add(a);
     }
     if (!one && tails.size > 1) {
       const seg = [];
+      const ends = [];
       for (const [a, b] of viewTopo()._edges) {
         if (!inLd.has(a) || !inLd.has(b) || !tails.has(a) || !tails.has(b)) continue;
         seg.push(...tails.get(a).toArray(), ...tails.get(b).toArray());
+        ends.push(a, b);
         if (seg.length > 12000) break;
       }
       if (seg.length) {
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(seg), 3));
-        G.symbols.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: col, depthTest: false })));
+        const ls = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: col, depthTest: false }));
+        ls.userData.followSeg = ends.map((n, q) => ({ node: n, off: new THREE.Vector3(...seg.slice(3 * q, 3 * q + 3)).sub(new THREE.Vector3(...nodes[n])) }));
+        G.symbols.add(ls);
       }
     }
   }
   drawHighlight();
+  followSymbols();
+}
+
+function followSymbols() {
+  if (!st || !st.view) return;
+  const res = !!R.mesh && !!R.pos && $('showResult').checked;
+  const nIn = res ? R.mesh.nInput : 0;
+  const P = (i) => (res && i < nIn ? new THREE.Vector3(R.pos[3 * i], R.pos[3 * i + 1], R.pos[3 * i + 2]) : new THREE.Vector3(...st.view.nodes[i]));
+  for (const c of G.symbols.children) {
+    const u = c.userData;
+    if (u.follow) c.position.copy(P(u.follow.node).sub(u.follow.dir.clone().multiplyScalar(u.follow.back)));
+    else if (u.followSeg) {
+      const at = c.geometry.attributes.position;
+      u.followSeg.forEach((e, q) => at.setXYZ(q, ...P(e.node).add(e.off).toArray()));
+      at.needsUpdate = true;
+      c.geometry.computeBoundingSphere();
+    } else if (u.followPts) {
+      const at = c.geometry.attributes.position;
+      u.followPts.forEach((n, q) => at.setXYZ(q, ...P(n).toArray()));
+      at.needsUpdate = true;
+      c.geometry.computeBoundingSphere();
+    }
+  }
 }
 
 const RAMP = [
@@ -701,6 +733,7 @@ async function showFrame() {
   }
   updateResultMirror();
   drawPressureArrows();
+  followSymbols();
   $('frameLabel').textContent = `${R.index + 1}/${st.result.frames.length} · ${f.label}`;
   $('legend').hidden = !$('showResult').checked;
   $('legendTitle').textContent = (FIELD_LABEL[R.field] || R.field) + (R.field.endsWith('Density') ? ' · 전 스텝 최대 기준' : '');
@@ -793,6 +826,7 @@ function applyVisibility() {
   $('mirrorWrap').hidden = !hasSym;
   G.mirror.visible = hasSym && $('showMirror').checked && !res;
   G.arrows.visible = res && $('showSymbols').checked;
+  followSymbols();
   for (const c of G.result.children) if (c.userData.mirror) c.visible = hasSym && $('showMirror').checked && (!c.userData.meshLines || ml);
 }
 

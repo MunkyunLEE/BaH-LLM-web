@@ -77,7 +77,10 @@ C++ 위치는 `core/src/` 기준입니다. 시험은 `tests/merlin/cases.py` (Oc
 | 미러 대칭: 평면 위 테두리 바의 두 끝 법선 변위 0, 그 바에 반쪽 힌지 (네 번째 절점 = 세 번째 절점의 거울상, 강성 ½) | `build` 대칭 분기, `internal` ghost | 전체 모델과 반 모델 변위 1.6e-15, 에너지 ×2 일치 (`tests/feature/symmetry.py`) |
 | 압력 Global: p A0/3 고정 방향 (처음 면적) | `pressureForce` | |
 | 압력 Local: f = p/6 (b-a)×(c-a) 각 꼭짓점, 하중 강성 ∂f/∂u (비대칭이면 LU) | `pressureForce`, `solveFree` | 수치 미분 5e-11 |
-| 기하 접촉: 점-삼각형·선-선 거리 장벽 b(d) = -(d-d̂)² ln(d/d̂), 힌지각 장벽, 연속 충돌 검사 (보수적 전진), 대칭면 벽 | `contact.cpp` | |
+| 기하 접촉: 점-삼각형·선-선 거리 장벽 κ b(d - d_min), b(s) = -(s-d̂)² ln(s/d̂), 힌지각 장벽, 연속 충돌 검사 (보수적 전진, 파이썬 참조의 ipctk AdditiveCCD 와 같은 방식), 대칭면 벽 | `contact.cpp` | 쌍별 경사·헤시안 수치 미분 1e-10 |
+| 선-선 장벽의 평행 보정 (IPC mollifier, ipctk 와 같음): x = ‖(b-a)×(d-c)‖², ε = 1e-3 ‖e_a⁰‖² ‖e_b⁰‖², x < ε 이면 m = (2 - x/ε) x/ε 를 장벽에 곱함. 평행한 두 선에서 거리 함수가 매끄럽지 않아 뉴턴이 진동하던 문제를 없앰 | `eeMollifier` | 접힌 판 접촉 시험에서 진동 → 수렴 |
+| 호장법(MGDCM) 반복에 접촉 이동량 제한: 충돌 없이 갈 수 있는 비율 α < 1 이면 ΔU·Δλ 를 0.8α 배 (파이썬 참조와 같음) | `stepForce` | |
+| 강제 변위 절점이 다른 면에 막히면 (예측 단계 충돌이 큰 증분 없이 40 번 넘게 반복) `contact_blocked` 로 멈춤 | `stepDisp` | |
 | 모달: K φ = ω² M φ, 집중 질량 (패널 질량을 꼭짓점과 중심점에 균등 분배, Filipov 2017 1/5) | `modal` | |
 | 기구 해석: 바 길이·패널 휨 각 구속의 야코비안 계수, 구동 주름 경로 | `kinematics` | |
 

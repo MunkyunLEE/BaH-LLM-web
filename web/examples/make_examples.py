@@ -225,5 +225,22 @@ P["miura_kinematic"] = {
     ],
 }
 
+Lc = 40.0
+cx, cz = Lc - Lc / math.sqrt(2), Lc / math.sqrt(2)
+write_obj("flap_contact.obj", [[0, 0, 0], [Lc, 0, 0], [Lc, Lc, 0], [0, Lc, 0], [cx, Lc, cz], [cx, 0, cz]], [[0, 1, 2, 3], [1, 5, 4, 2]])
+P["flap_contact"] = {
+    "title": "10. 날개 판이 바닥 판 위로 접히며 접촉 (기하 접촉, 호장법)",
+    "file": "flap_contact.obj",
+    "note": "바닥 판 네 꼭짓점 고정, 45° 로 선 날개 판 끝 변(5, 6번 점)에 아래로 힘. 접촉 간격 0.5 mm 로 날개가 바닥을 뚫지 않고 멈춥니다. 닿은 뒤에는 강성이 커져 MGDCM 하중 계수가 크게 뜁니다.",
+    "prompts": ["접촉 에너지 그래프", "5번 점 변위-힘 그래프", "해석 실행"],
+    "ops": [
+        {"op": "set_material", "E": 3000, "nu": 0.3, "thickness": 0.5},
+        {"op": "add_bc", "select": {"nodes": [0, 1, 2, 3]}, "type": "fixed", "name": "바닥 판 고정"},
+        {"op": "add_load", "type": "force", "select": {"nodes": [4, 5]}, "vector": [0, 0, -1]},
+        {"op": "set_bh", "contact": True, "gap": 0.5},
+        {"op": "set_step", "type": "arclength", "increments": 200, "lambda0": 0.002, "lam_max": 2},
+    ],
+}
+
 json.dump(P, open(os.path.join(HERE, "presets.json"), "w"), ensure_ascii=False, indent=1)
 print("examples", list(P))

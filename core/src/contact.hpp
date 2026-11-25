@@ -14,6 +14,7 @@ struct Contact {
     std::vector<std::array<int, 3>> tris;
     std::vector<int> verts;
     std::vector<std::array<int, 4>> ptPairs, eePairs;
+    std::vector<double> eeEps;
     std::vector<double> hingeH;
     std::vector<std::pair<int, int>> wall;
     std::vector<double> wallC;

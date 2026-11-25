@@ -196,6 +196,15 @@ Eigen::Matrix<double, N, N> psd(const Eigen::Matrix<double, N, N>& H) {
 
 Vec3 row(const MatX& X, int i) { return X.row(i).transpose(); }
 
+D2 eeMollifier(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d, double eps) {
+    V3 A = seed(a, 0), B = seed(b, 1), C = seed(c, 2), D = seed(d, 3);
+    V3 n = crs(sub(B, A), sub(D, C));
+    D2 x = dot(n, n);
+    if (x.v >= eps) return cst(1);
+    D2 r = x / cst(eps);
+    return (cst(2) - r) * r;
+}
+
 }
 
 void Contact::init(const Model& m, double gap, double kappaIn, const std::vector<Symmetry>& sym) {
@@ -250,6 +259,7 @@ void Contact::init(const Model& m, double gap, double kappaIn, const std::vector
                 continue;
             }
             eePairs.push_back({e[0], e[1], f[0], f[1]});
+            eeEps.push_back(1e-3 * (row(X, e[1]) - row(X, e[0])).squaredNorm() * (row(X, f[1]) - row(X, f[0])).squaredNorm());
         }
     hingeH.resize(m.hinges.size());
     for (size_t i = 0; i < m.hinges.size(); i++) {
@@ -279,7 +289,7 @@ ContactInfo Contact::add(const Model& m, const MatX& Xc, VecX& IF, std::vector<T
     ContactInfo info;
     info.restExcluded = restExcluded;
     double lim = dmin + dhat;
-    auto pairTerm = [&](const std::array<int, 4>& n, bool pt) {
+    auto pairTerm = [&](const std::array<int, 4>& n, bool pt, double eps) {
         Vec3 p0 = row(Xc, n[0]), p1 = row(Xc, n[1]), p2 = row(Xc, n[2]), p3 = row(Xc, n[3]);
         Eigen::AlignedBox3d A, B;
         if (pt) {
@@ -306,7 +316,16 @@ ContactInfo Contact::add(const Model& m, const MatX& Xc, VecX& IF, std::vector<T
         double g1 = b1 / (2 * d), g2 = (b2 - b1 / d) / (4 * d2);
         Eigen::Matrix<double, 12, 1> g = kappa * g1 * q.g;
         Eigen::Matrix<double, 12, 12> H = kappa * (g2 * q.g * q.g.transpose() + g1 * q.h);
-        info.energy += kappa * b;
+        double e = kappa * b;
+        if (!pt && eps > 0) {
+            D2 mo = eeMollifier(p0, p1, p2, p3, eps);
+            if (mo.v < 1) {
+                H = mo.v * H + e * mo.h + g * mo.g.transpose() + mo.g * g.transpose();
+                g = mo.v * g + e * mo.g;
+                e *= mo.v;
+            }
+        }
+        info.energy += e;
         info.pairs++;
         for (int k = 0; k < 4; k++) IF.segment<3>(3 * n[k]) += g.segment<3>(3 * k);
         if (T) {
@@ -315,8 +334,8 @@ ContactInfo Contact::add(const Model& m, const MatX& Xc, VecX& IF, std::vector<T
                 for (int c = 0; c < 12; c++) T->emplace_back(3 * n[r / 3] + r % 3, 3 * n[c / 3] + c % 3, Hp(r, c));
         }
     };
-    for (auto& p : ptPairs) pairTerm(p, true);
-    for (auto& p : eePairs) pairTerm(p, false);
+    for (auto& p : ptPairs) pairTerm(p, true, 0);
+    for (size_t i = 0; i < eePairs.size(); i++) pairTerm(eePairs[i], false, i < eeEps.size() ? eeEps[i] : 0);
     if (hingeBarrier) {
         for (size_t i = 0; i < m.hinges.size(); i++) {
             const Hinge& h = m.hinges[i];

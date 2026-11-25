@@ -278,6 +278,13 @@ void Analysis::stepForce() {
             dl = -dupc1.dot(dUr) / dupc1.dot(dUp);
         }
         VecX dUt = dl * dUp + dUr;
+        if (ct) {
+            double a = ct->stepSize(m, current(m, U), dUt);
+            if (a < 1) {
+                dUt *= 0.8 * a;
+                dl *= 0.8 * a;
+            }
+        }
         U += dUt;
         err = 0;
         for (int i : free) err += dUt[i] * dUt[i];
@@ -361,7 +368,14 @@ void Analysis::stepDisp() {
     bool fail = false;
     if (ct) {
         double a = ct->stepSize(m, current(m, U), pred);
-        if (a < 1) fail = true;
+        if (a < 1) {
+            fail = true;
+            if (++ctBlocked > 40) {
+                done = true;
+                status = "contact_blocked";
+                return;
+            }
+        }
     }
     int iter = 0;
     double err = 1;
@@ -410,6 +424,7 @@ void Analysis::stepDisp() {
         return;
     }
     dspmvd += step / set.dispStep;
+    if (step >= 0.25) ctBlocked = 0;
     attmpts = 0;
     damping = 1;
     if (mv < 1)

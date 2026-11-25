@@ -14,6 +14,7 @@
 - `make -C core native wasm` (wasm 은 `pip install ziglang`, Eigen 은 `/usr/include/eigen3`)
 - MERLIN2 대조: `python3 tests/merlin/cases.py cmp` (정답 데이터 `tests/merlin/ref/*.npz`, 다시 만들려면 Octave 와 MERLIN2 폴더를 `MERLIN_DIR` 로 두고 `cases.py ref`)
 - 대칭 검증: `python3 tests/feature/symmetry.py`
+- 접촉 검증: `python3 tests/feature/contact.py`
 - 수치 미분: `core/tools/fdcheck.cpp`
 - 문장 규칙: `node tests/web/rules_probe.mjs`
 - 예제: `python3 web/examples/make_examples.py` → `web/examples/presets.json`

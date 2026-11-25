@@ -70,6 +70,7 @@ struct Analysis {
     VecX legStart, Fdsp;
     double dspmvd = 0, mv = 1, damping = 1;
     int attmpts = 0;
+    int ctBlocked = 0;
     VecX Fprev;
     VecX Uprev;
     double Wext = 0;

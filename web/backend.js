@@ -324,8 +324,7 @@ export function warnings(spec, geo) {
   if (!moving && !spec.loads.length && ['static', 'arclength'].includes(st)) out.push('하중이나 강제 변위가 없습니다');
   if (spec.bh.plastic_hinge && !spec.materials.default.yield && spec.bh.fold_yield == null) out.push('소성 힌지를 켰지만 재료 항복 응력이 없어 힌지는 탄성으로 계산합니다');
   if (st === 'modal' && !(spec.materials.default.rho > 0) && spec.bh.use_mass !== false) out.push('모달 해석에는 밀도가 필요합니다');
-  if (spec.bh.contact && st !== 'static') out.push('기하 접촉은 강제 변위(정적) 해석에서만 적용됩니다');
-  if (spec.bh.contact && st === 'static' && !moving) out.push('기하 접촉은 강제 변위가 있을 때만 적용됩니다 (힘만 있으면 호장법으로 풀어 접촉을 쓰지 않습니다)');
+  if (spec.bh.contact && !['static', 'arclength'].includes(st)) out.push('기하 접촉은 정적·호장법 해석에서만 적용됩니다');
   for (const s of pv.symmetry) if (!s.edges.length) out.push(`${s.id}: ${s.axis} = ${s.at} 평면 위에 놓인 테두리 엣지가 없습니다`);
   if (spec.symmetry.length) {
     for (const p of pv.bcs) for (const s of spec.symmetry) {
@@ -415,7 +414,7 @@ export function coreInput(spec, geo) {
   const moving = disp.size > 0;
   const type = st.type === 'modal' ? 'modal' : st.type === 'kinematic' ? 'kinematic' : st.type === 'arclength' || !moving ? 'force' : 'displacement';
   const inc = st.increments || 100;
-  const analysis = { type, dispStep: inc, maxIcr: Math.max(inc, 1), lambda0: st.lambda0 || 1 / inc, lamMax: st.lam_max === null ? -1 : st.lam_max ?? 1, contact: !!bh.contact && type === 'displacement', modes: st.modes || 6, useMass: bh.use_mass !== false, kinSteps: inc };
+  const analysis = { type, dispStep: inc, maxIcr: Math.max(inc, 1), lambda0: st.lambda0 || 1 / inc, lamMax: st.lam_max === null ? -1 : st.lam_max ?? 1, contact: !!bh.contact && (type === 'displacement' || type === 'force'), modes: st.modes || 6, useMass: bh.use_mass !== false, kinSteps: inc };
   if (bh.gap) analysis.gap = bh.gap;
   if (bh.cycles > 0 && type === 'displacement') {
     analysis.cycles = bh.cycles;
@@ -679,7 +678,7 @@ function buildResult(kind, mode, model, result, frames, elapsed) {
     summary['바 / 접힘 / 휨 에너지 (N·mm)'] = [result.US[L], result.UF[L], result.UB[L] + result.UE[L]];
     if (result.Wp[L]) summary['소성 소산 (N·mm)'] = result.Wp[L];
     const retries = (result.notes || []).filter((q) => q === 'retry' || q === 'reduce_radius').length;
-    const st = { completed: '완료', load_reached: '목표 하중 도달', max_increments: '최대 증분 도달', stop_criterion: '정지 조건', no_convergence: '수렴 실패로 중단', radius_underflow: '호장 반경이 너무 작아 중단' }[result.status] || result.status;
+    const st = { completed: '완료', load_reached: '목표 하중 도달', max_increments: '최대 증분 도달', stop_criterion: '정지 조건', no_convergence: '수렴 실패로 중단', radius_underflow: '호장 반경이 너무 작아 중단', contact_blocked: '강제 변위 절점이 접촉에 막혀 중단' }[result.status] || result.status;
     summary['참고'] = [`상태: ${st}`, ...(retries ? [`증분 재시도 ${retries}회 (MERLIN2 방식 보폭 조절)`] : [])];
   } else if (kind === 'modal') {
     summary['모드 수'] = count;
