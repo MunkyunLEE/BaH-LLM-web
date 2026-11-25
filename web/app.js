@@ -1318,10 +1318,11 @@ async function loadPlots() {
       const csv = el('button', 'mini', 'CSV');
       csv.title = tr('이 그래프 데이터를 CSV 로 저장');
       csv.onclick = () => {
-        const rows = [['x', ...p.series.map((q) => q.name)].join(',')];
-        const n = Math.max(...p.series.map((q) => q.x.length));
-        for (let i = 0; i < n; i++) rows.push([p.series[0].x[i], ...p.series.map((q) => q.y[i])].join(','));
-        download(URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' })), `${p.title}.csv`);
+        const q = (v) => (/[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v);
+        const rows = [[p.xlabel || 'x', ...p.series.map((s) => s.name)].map(q).join(',')];
+        const n = Math.max(...p.series.map((s) => s.x.length));
+        for (let i = 0; i < n; i++) rows.push([p.series[0].x[i], ...p.series.map((s) => s.y[i])].join(','));
+        download(URL.createObjectURL(new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv' })), `${p.title}.csv`);
       };
       t.append(csv);
     }
