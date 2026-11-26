@@ -83,6 +83,9 @@ struct Analysis {
     bool stopNow(const VecX& Uc) const;
     void stepForce();
     void stepDisp();
+    double potential(const VecX& Uc, double lam);
+    bool minimize(VecX& Uc, double lam, int& iters);
+    int nMin = 0;
     std::string modal(std::vector<double>& eig, std::vector<VecX>& shapes, int& rigid);
     std::string kinematics(int& mech, int& selfStress, int& rank, std::vector<VecX>& path, std::vector<VecX>& angles);
     VecX hingeAngles(const VecX& x) const;

@@ -78,6 +78,23 @@ void Analysis::setup(const Input& in, const Settings& s) {
                         else
                             Ubar[3 * i + q] = d.second[q];
                     }
+    for (size_t p = 0; p < m.panels.size() && p < m.panelCtr.size(); p++) {
+        int c = m.panelCtr[p];
+        const auto& P = m.panels[p];
+        if (c < 0 || P.empty()) continue;
+        for (int q = 0; q < 3; q++) {
+            bool allFix = true, allSame = true;
+            double u0 = Ubar[3 * P[0] + q];
+            for (int v : P) {
+                if (!fx.count(3 * v + q)) allFix = false;
+                if (fx.count(3 * v + q) || Ubar[3 * v + q] == 0 || std::abs(Ubar[3 * v + q] - u0) > 1e-12 * std::abs(u0)) allSame = false;
+            }
+            if (allFix)
+                fx.insert(3 * c + q);
+            else if (allSame)
+                Ubar[3 * c + q] = u0;
+        }
+    }
     fixed.assign(fx.begin(), fx.end());
     for (int i = 0; i < nd; i++)
         if (Ubar[i] != 0 && !fx.count(i)) imp.push_back(i);
@@ -371,6 +388,12 @@ void Analysis::stepDisp() {
     for (int i : fixed) pred[i] = 0;
     bool fail = false;
     if (ct) {
+        VecX R0;
+        SpMat K0;
+        evalSystem(U, sNew, R0, K0, nullptr);
+        MatX s0;
+        if (solveFree(K0, free, R0 - K0 * pred, s0, !follower) && s0.allFinite())
+            for (int i : free) pred[i] += s0(i, 0);
         double a = ct->stepSize(m, current(m, U), pred);
         if (a < 1) {
             fail = true;
@@ -407,6 +430,19 @@ void Analysis::stepDisp() {
         }
     }
     bool bad = fail || !std::isfinite(err) || iter >= ((mv > 1) + 1) * set.maxIter / (damping + 1);
+    if (bad && !fail && ct && !follower) {
+        st = sbak;
+        VecX Um = Ubak + pred;
+        for (int i : fixed) Um[i] = 0;
+        int it2 = 0;
+        if (minimize(Um, sNew, it2)) {
+            U = Um;
+            iter = it2;
+            bad = false;
+            nMin++;
+            notes.push_back("energy_min");
+        }
+    }
     if (bad) {
         attmpts++;
         icrm--;
@@ -447,6 +483,74 @@ void Analysis::stepDisp() {
     Shis.push_back(st);
     double sRec = leg == 0 ? std::min(1.0, dspmvd) : 1.0;
     frames.push_back(record(U, sRec, leg + std::min(1.0, dspmvd), iter));
+}
+
+double Analysis::potential(const VecX& Uc, double lam) {
+    VecX IF;
+    ElemOut o;
+    internal(m, Uc, st, IF, nullptr, &o, false);
+    double E = o.W.sum() + o.Uh.sum();
+    if (ct) {
+        VecX g = VecX::Zero(m.ndof());
+        E += ct->add(m, current(m, Uc), g, nullptr).energy;
+    }
+    E -= fext(Uc, lam, nullptr).dot(Uc);
+    return E;
+}
+
+bool Analysis::minimize(VecX& Uc, double lam, int& iters) {
+    double mu = 0;
+    double P = potential(Uc, lam);
+    if (!std::isfinite(P)) return false;
+    for (iters = 0; iters < 400; iters++) {
+        VecX R;
+        SpMat K;
+        evalSystem(Uc, lam, R, K, nullptr);
+        double rn = 0, dmax = 0;
+        for (int i : free) rn += R[i] * R[i];
+        for (int i : free) dmax = std::max(dmax, std::abs(K.coeff(i, i)));
+        bool moved = false;
+        for (int tries = 0; tries < 12 && !moved; tries++) {
+            SpMat Km = K;
+            if (mu > 0)
+                for (int i : free) Km.coeffRef(i, i) += mu;
+            MatX sol;
+            bool ok = solveFree(Km, free, R, sol, true) && sol.allFinite();
+            VecX d = ok ? VecX(sol.col(0)) : VecX();
+            double slope = ok ? R.dot(d) : -1;
+            if (!ok || slope <= 0) {
+                mu = std::max(4 * mu, 1e-6 * std::max(dmax, 1.0));
+                continue;
+            }
+            double dn = 0;
+            for (int i : free) dn += d[i] * d[i];
+            dn = std::sqrt(dn);
+            if (mu == 0 && dn < set.tol) {
+                Uc += d;
+                return std::isfinite(potential(Uc, lam));
+            }
+            double a = 1;
+            if (ct) a = std::min(1.0, ct->stepSize(m, current(m, Uc), d));
+            while (a > 1e-10) {
+                VecX Ut = Uc + a * d;
+                double Pt = potential(Ut, lam);
+                if (std::isfinite(Pt) && Pt <= P - 1e-4 * a * slope) {
+                    Uc = Ut;
+                    P = Pt;
+                    moved = true;
+                    break;
+                }
+                a *= 0.5;
+            }
+            if (moved)
+                mu = a == 1 ? mu / 4 : mu;
+            else
+                mu = std::max(4 * mu, 1e-6 * std::max(dmax, 1.0));
+            if (mu < 1e-12 * std::max(dmax, 1.0)) mu = 0;
+        }
+        if (!moved) return rn < set.tol * set.tol;
+    }
+    return false;
 }
 
 void Analysis::step(int maxIncr) {

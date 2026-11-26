@@ -544,4 +544,6 @@ export const EN = {
   '편집 화면': 'Edit view',
   '결과 보기': 'Show results',
   '결과를 감추고 편집 화면으로 돌아감 (결과는 지우지 않음)': 'Hide results and return to the edit view (results are kept)',
+  '뉴턴이 수렴하지 않아 에너지 최소화로 넘긴 증분 {n}회 (접촉 해석)': '{n} increments passed by energy minimization after Newton failed (contact analysis)',
+  '처음 형상에서 서로 다른 부품이 접촉 간격({g} mm) 이하로 붙어 있습니다. 누름판 등을 간격보다 조금 더 띄워 두세요': 'In the initial shape, separate parts are within the contact gap ({g} mm). Place the platen a little farther than the gap',
 };

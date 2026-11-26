@@ -21,6 +21,7 @@
 
 ## 구조 요점
 - 스펙 (backend.js `defaultSpec`): materials.default, sections['*'].thickness, bh{...}, creases{"a-b": fold|bend|cut}, bcs (value≠0 = 강제 변위), loads (force/pressure/gravity), symmetry, step, plots
+- 접촉 강제 변위: 증분 시작에 장벽 강성 포함 탄성 예측, 뉴턴 실패 시 에너지 최소화(`Analysis::minimize`, 요약 notes `energy_min`), 처음 근접쌍 제외는 같은 부품 안에서만, 모서리가 모두 같은 조건인 패널의 N5B8 가운데 절점에 같은 조건
 - 해석 종류: static (강제 변위 있으면 MERLIN2 Displacement, 힘만 있으면 MGDCM), arclength, modal, kinematic
 - 결과 프레임 = [U(nd), 내력 IF(nd), 절점 에너지 바·접힘·휨(nn×3), 바 응력 Sx(nb), 바 누적 소성 α_bar(nb), 힌지 누적 소성 회전 α_hinge(nh)]. 반력·하중점 힘은 IF 에서. 컨투어 기본은 MERLIN2 Vertex(Σ|Sx·A|), 소성이면 PEEQ 컨투어(peeqBar/peeqFold/peeqBend) 추가
 - 해석 뒤 기본 그래프: 스텝-에너지, 스텝-힘. 문장으로 스텝-변위, 변위-힘, 변위-에너지, 주름 이면각(`angle`), 해 공간(`add_plot` `type: space3`, 주름 3개) 추가

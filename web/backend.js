@@ -910,6 +910,9 @@ function buildMeta(res) {
     const st = { completed: '완료', load_reached: '목표 하중 도달', max_increments: '최대 증분 도달', stop_criterion: '정지 조건', no_convergence: '수렴 실패로 중단', radius_underflow: '호장 반경이 너무 작아 중단', contact_blocked: '강제 변위 절점이 접촉에 막혀 중단' }[result.status];
     notes.push(tl('상태: {v}', { v: st ? tl(st) : result.status }));
     if (retries) notes.push(tl('증분 재시도 {n}회 (MERLIN2 방식 보폭 조절)', { n: retries }));
+    if (S.spec.bh.contact && result.minDist && result.minDist[0] >= 0 && result.minDist[0] <= (S.spec.bh.gap || 0) * 1.0001) notes.push(tl('처음 형상에서 서로 다른 부품이 접촉 간격({g} mm) 이하로 붙어 있습니다. 누름판 등을 간격보다 조금 더 띄워 두세요', { g: S.spec.bh.gap }));
+    const emin = (result.notes || []).filter((q) => q === 'energy_min').length;
+    if (emin) notes.push(tl('뉴턴이 수렴하지 않아 에너지 최소화로 넘긴 증분 {n}회 (접촉 해석)', { n: emin }));
   } else if (kind === 'modal') {
     summary[tl('모드 수')] = count;
     summary[tl('강체 모드')] = result.rigid;

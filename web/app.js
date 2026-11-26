@@ -1255,7 +1255,8 @@ function chart(p) {
   mk('text', { x: (m.l + W - m.r) / 2, y: H - 4, 'text-anchor': 'middle', 'font-size': 10, fill: '#8492a6' }, p.xlabel);
   const g = mk('g', { 'clip-path': `url(#${cid})` });
   let out = 0;
-  const inside = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+  const ex = 1e-6 * (x1 - x0), ey = 1e-6 * (y1 - y0);
+  const inside = (x, y) => x >= x0 - ex && x <= x1 + ex && y >= y0 - ey && y <= y1 + ey;
   const line = (s, attrs) => {
     let seg = [];
     const flush = () => {

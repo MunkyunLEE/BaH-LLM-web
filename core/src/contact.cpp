@@ -1,3 +1,4 @@
+#include <functional>
 #include "contact.hpp"
 
 #include <algorithm>
@@ -233,6 +234,13 @@ void Contact::init(const Model& m, double gap, double kappaIn, const std::vector
         if (a < (int)m.orig.size() && b < (int)m.orig.size()) return m.orig[a] == m.orig[b];
         return false;
     };
+    std::vector<int> comp(m.X.rows());
+    for (int i = 0; i < (int)comp.size(); i++) comp[i] = i;
+    std::function<int(int)> root = [&](int i) { return comp[i] == i ? i : comp[i] = root(comp[i]); };
+    for (auto& t : tris) {
+        int a = root(t[0]);
+        for (int q = 1; q < 3; q++) comp[root(t[q])] = a;
+    }
     const MatX& X = m.X;
     double lim = dmin + dhat;
     for (size_t t = 0; t < tris.size(); t++)
@@ -241,7 +249,7 @@ void Contact::init(const Model& m, double gap, double kappaIn, const std::vector
             if (same(v, tr[0]) || same(v, tr[1]) || same(v, tr[2])) continue;
             int ty;
             double d = std::sqrt(ptDist2(row(X, v), row(X, tr[0]), row(X, tr[1]), row(X, tr[2]), ty));
-            if (d < lim) {
+            if (d < lim && root(v) == root(tr[0])) {
                 restExcluded++;
                 continue;
             }
@@ -254,7 +262,7 @@ void Contact::init(const Model& m, double gap, double kappaIn, const std::vector
             if (same(e[0], f[0]) || same(e[0], f[1]) || same(e[1], f[0]) || same(e[1], f[1])) continue;
             int ty;
             double d = std::sqrt(eeDist2(row(X, e[0]), row(X, e[1]), row(X, f[0]), row(X, f[1]), ty));
-            if (d < lim) {
+            if (d < lim && root(e[0]) == root(f[0])) {
                 restExcluded++;
                 continue;
             }
