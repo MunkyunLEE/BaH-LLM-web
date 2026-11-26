@@ -932,6 +932,7 @@ function applyVisibility() {
   for (const id of ['play', 'frame', 'frameLabel', 'field', 'scale', 'autoScale', 'savePng', 'saveVideo']) $(id).hidden = !res;
   $('scale').parentElement.hidden = !res;
   $('resultbar').style.right = res ? '' : 'auto';
+  $('rbTop').hidden = !res;
   const ml = $('showMeshLines').checked;
   const tk = false;
   G.result.children.forEach((c) => {

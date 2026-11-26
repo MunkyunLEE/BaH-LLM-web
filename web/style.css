@@ -68,10 +68,16 @@ main{display:grid;grid-template-rows:minmax(0,1fr) auto;min-width:0}
 #resultbar{bottom:58px;right:12px}
 #viewbar button,#resultbar button{width:auto}
 #viewbar label.check,#resultbar label{padding:0;flex-direction:row;align-items:center;gap:6px;white-space:nowrap}
-#resultbar input[type=range]{flex:1}
+#resultbar{flex-direction:column;align-items:stretch;gap:6px}
+#rbTop,#rbCtl{display:flex;gap:10px;align-items:center;min-width:0}
+#rbCtl{flex-wrap:nowrap}
+#rbCtl>*{flex:none}
+#rbTop input[type=range]{flex:1;min-width:120px}
+#rbCtl select{flex:1 1 auto;min-width:90px;max-width:260px}
+#rbCtl input[type=number]{width:60px}
 #resultbar input[type=number]{width:80px}
 #resultbar select{width:120px}
-#frameLabel{font-size:12px;min-width:120px;color:var(--mute)}
+#frameLabel{font-size:12px;min-width:120px;color:var(--mute);white-space:nowrap}
 #bottom{border-top:1px solid var(--line);background:var(--panel);max-height:38vh;overflow:auto}
 #summary{display:flex;flex-wrap:wrap;gap:6px 18px;padding:8px 14px;font-size:12px}
 #summary:empty{display:none}
