@@ -525,9 +525,10 @@ bool Analysis::minimize(VecX& Uc, double lam, int& iters) {
             double dn = 0;
             for (int i : free) dn += d[i] * d[i];
             dn = std::sqrt(dn);
-            if (mu == 0 && dn < set.tol) {
-                Uc += d;
-                return std::isfinite(potential(Uc, lam));
+            if (dn < set.tol) {
+                double a0 = ct ? std::min(1.0, ct->stepSize(m, current(m, Uc), d)) : 1.0;
+                Uc += a0 * d;
+                return a0 >= 1 && std::isfinite(potential(Uc, lam));
             }
             double a = 1;
             if (ct) a = std::min(1.0, ct->stepSize(m, current(m, Uc), d));
@@ -543,7 +544,7 @@ bool Analysis::minimize(VecX& Uc, double lam, int& iters) {
                 a *= 0.5;
             }
             if (moved)
-                mu = a == 1 ? mu / 4 : mu;
+                mu = a == 1 ? mu / 4 : mu / 2;
             else
                 mu = std::max(4 * mu, 1e-6 * std::max(dmax, 1.0));
             if (mu < 1e-12 * std::max(dmax, 1.0)) mu = 0;
