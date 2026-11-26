@@ -541,4 +541,7 @@ export const EN = {
   '점': 'point',
   '강체 접힘 경로 {n}': 'rigid folding path {n}',
   '{e} 이면각 (도)': '{e} dihedral (deg)',
+  '편집 화면': 'Edit view',
+  '결과 보기': 'Show results',
+  '결과를 감추고 편집 화면으로 돌아감 (결과는 지우지 않음)': 'Hide results and return to the edit view (results are kept)',
 };

@@ -721,7 +721,9 @@ async function loadResult() {
   fsel.value = R.field;
   R.auto = true;
   $('resultbar').hidden = false;
-  $('showResult').checked = true;
+  const stamp = JSON.stringify(st.result.summary);
+  if (stamp !== R.stamp) $('showResult').checked = true;
+  R.stamp = stamp;
   buildRigid();
   await showFrame();
   applyVisibility();
@@ -926,6 +928,10 @@ function applyVisibility() {
   if (!res) placeRigid(0);
   $('legend').hidden = !res;
   $('resultbar').hidden = !R.mesh;
+  $('toEdit').textContent = res ? t('편집 화면') : t('결과 보기');
+  for (const id of ['play', 'frame', 'frameLabel', 'field', 'scale', 'autoScale', 'savePng', 'saveVideo']) $(id).hidden = !res;
+  $('scale').parentElement.hidden = !res;
+  $('resultbar').style.right = res ? '' : 'auto';
   const ml = $('showMeshLines').checked;
   const tk = false;
   G.result.children.forEach((c) => {
@@ -2053,6 +2059,11 @@ function bind() {
   };
   $('cancelSolve').onclick = () => api('/api/cancel/solve', { method: 'POST' }).catch(() => {});
   $('fit').onclick = fit;
+  $('toEdit').onclick = () => {
+    $('showResult').checked = !$('showResult').checked;
+    applyVisibility();
+    if ($('showResult').checked) showFrame();
+  };
   for (const id of ['showSymbols', 'showEdges', 'showResult', 'showMeshLines', 'showMirror']) $(id).onchange = () => {
     applyVisibility();
     if (R.mesh) showFrame();
@@ -2360,7 +2371,7 @@ function bindBH() {
     };
   });
   const setbh = (o) => ops([{ op: 'set_bh', ...o }]);
-  $('bhLstar').onchange = (e) => setbh({ Lstar: bhNum(e.target.value), fold_mode: 'auto' });
+  $('bhLstar').onchange = (e) => setbh({ Lstar: bhNum(e.target.value), calib: 'auto', fold_k: null });
   $('bhContact').onchange = (e) => setbh({ contact: e.target.checked });
   $('bhPH').onchange = (e) => setbh({ plastic_hinge: e.target.checked });
   $('bhCyc').onchange = (e) => {

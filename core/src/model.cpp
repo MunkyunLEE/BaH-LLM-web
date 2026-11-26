@@ -704,6 +704,16 @@ Model build(const Input& in) {
         }
         m.triPanel.push_back(p);
     }
+    for (size_t t = 0; t < m.tris.size(); t++) {
+        int p = m.triPanel[t];
+        if (p < 0) continue;
+        const auto& P = F[p];
+        Vec3 nP = Vec3::Zero();
+        for (size_t q = 0; q < P.size(); q++) nP += Vec3(m.X.row(P[q])).cross(Vec3(m.X.row(P[(q + 1) % P.size()])));
+        auto& tr = m.tris[t];
+        Vec3 a = m.X.row(tr[0]), b = m.X.row(tr[1]), c = m.X.row(tr[2]);
+        if ((b - a).cross(c - a).dot(nP) < 0) std::swap(tr[1], tr[2]);
+    }
     std::sort(m.fixedDofs.begin(), m.fixedDofs.end());
     m.fixedDofs.erase(std::unique(m.fixedDofs.begin(), m.fixedDofs.end()), m.fixedDofs.end());
     return m;
