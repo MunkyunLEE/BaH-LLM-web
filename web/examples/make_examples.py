@@ -259,39 +259,6 @@ P["miura_plastic"] = {
     ],
 }
 
-def kresling_stack(hs, n=6, a=40.0, phi=11 * math.pi / 18):
-    R = a / (2 * math.sin(math.pi / n))
-    V = [[R * math.cos(2 * math.pi * i / n), R * math.sin(2 * math.pi * i / n), 0.0] for i in range(n)]
-    F = []
-    z = rot = 0.0
-    for h in hs:
-        z += h
-        rot += phi
-        base = len(V) - n
-        V += [[R * math.cos(2 * math.pi * i / n + rot), R * math.sin(2 * math.pi * i / n + rot), z] for i in range(n)]
-        top = len(V) - n
-        for i in range(n):
-            b0, b1, t0, t1 = base + i, base + (i + 1) % n, top + i, top + (i + 1) % n
-            F += [[b0, b1, t0], [b1, t1, t0]]
-    return V, F
-
-
-V, F = kresling_stack([30.0, 36.0])
-write_obj("kresling_2stage.obj", V, F)
-P["kresling_2stage"] = {
-    "title": "12. 크레슬링 2단 접었다 펴기 2회 (높이 30 + 36, 접촉)",
-    "file": "kresling_2stage.obj",
-    "note": "아래 단 높이 30 mm, 위 단은 z 로 1.2배 (36 mm). 아래 링 고정, 위 링을 z 로 -63 mm (전체 66 mm 에서 접촉 간격으로 남는 약 3 mm 제외) 눌렀다 되돌리기 2회. 탄성, 기하 접촉 간격 0.3 mm. 그래프 '단 높이' 로 어느 단이 먼저 접히는지 봅니다.",
-    "prompts": ["해석 실행", "z 최대 면 변위-힘 그래프", "X[-63~0mm] Y [-500~500N]"],
-    "ops": [
-        {"op": "set_material", "E": 70000, "nu": 0.33, "thickness": 0.3},
-        {"op": "add_bc", "select": {"plane": {"axis": "z", "at": "min"}}, "type": "fixed", "name": "아래 링 고정"},
-        {"op": "add_bc", "select": {"plane": {"axis": "z", "at": "max"}}, "dofs": [3], "value": -63.0, "name": "위 링 강제 변위"},
-        {"op": "set_bh", "contact": True, "gap": 0.3, "cycles": 2},
-        {"op": "set_step", "type": "static", "increments": 200},
-        {"op": "add_plot", "title": "링 z 변위 (가운데 링 = 아래 단 높이 변화)", "x": {"quantity": "step"}, "series": [{"quantity": "uz", "select": {"nodes": [6, 7, 8, 9, 10, 11]}}, {"quantity": "uz", "select": {"plane": {"axis": "z", "at": "max"}}}]},
-    ],
-}
 
 EN = {
     "miura_fold": ("1. Miura 3x3 folding (prescribed displacement, N5B8 auto stiffness)",
@@ -306,9 +273,6 @@ EN = {
     "miura_plastic": ("11. Miura 3x3 cyclic compression (quad mesh, plastic hinges, PEEQ)",
                       "Quad-panel (N5B8) Miura folded by -15 mm in x and returned, 2 cycles. Aluminum, thickness 0.3, elasto-plastic fold and bend hinges (yield moment 0.05 N·mm/mm per length, hardening 0.05). Use the contour 'Fold crease accumulated plastic rotation' to see where plasticity builds up.",
                       ["run", "crease 2-9 plastic rotation plot", "node 1 force-displacement plot"]),
-    "kresling_2stage": ("12. Two-stage Kresling, fold and unfold twice (heights 30 + 36, contact)",
-                        "Lower stage 30 mm high, upper stage stretched 1.2x in z (36 mm). Bottom ring fixed, top ring pushed -63 mm in z (66 mm total minus about 3 mm left by the contact gap) and returned, 2 cycles. Elastic, geometric contact gap 0.3 mm. The 'ring z displacement' plot shows which stage folds first.",
-                        ["run", "top face (z max) displacement-force plot", "X[-63~0mm] Y [-500~500N]"]),
     "simple_fold": ("4. Single crease fold (geometry of Tang 2026 Fig. 4)",
                     "Triangle ABC fixed, point D lifted in z to fold crease AB. Aluminum, plastic hinge.",
                     ["node 4 force-displacement plot", "run"]),
