@@ -2215,6 +2215,8 @@ function renderBH() {
   const c = st.spec.bh || {};
   if (document.activeElement !== $('bhLstar')) $('bhLstar').value = c.Lstar ?? '';
   $('bhContact').checked = !!c.contact;
+  $('bhGapBox').hidden = !c.contact;
+  if (document.activeElement !== $('bhGap')) $('bhGap').value = c.gap ?? '';
   $('bhPH').checked = !!c.plastic_hinge;
   $('bhCyc').checked = (c.cycles || 0) > 0;
   $('bhCycNBox').hidden = !((c.cycles || 0) > 0);
@@ -2374,7 +2376,11 @@ function bindBH() {
   });
   const setbh = (o) => ops([{ op: 'set_bh', ...o }]);
   $('bhLstar').onchange = (e) => setbh({ Lstar: bhNum(e.target.value), calib: 'auto', fold_k: null });
-  $('bhContact').onchange = (e) => setbh({ contact: e.target.checked });
+  $('bhContact').onchange = (e) => {
+    $('bhGapBox').hidden = !e.target.checked;
+    setbh({ contact: e.target.checked });
+  };
+  $('bhGap').onchange = (e) => setbh({ gap: bhNum(e.target.value) });
   $('bhPH').onchange = (e) => setbh({ plastic_hinge: e.target.checked });
   $('bhCyc').onchange = (e) => {
     $('bhCycNBox').hidden = !e.target.checked;
@@ -2419,7 +2425,6 @@ const BH_EXTRA = [
   ['bend_yield', null, '휨 힌지 항복 모멘트', 'N·mm/mm'],
   ['bend_H', 0, '휨 힌지 경화', 'N·mm/rad/mm'],
   ['cycle_back', 0, '반복 되돌림 변위', 'mm'],
-  ['gap', null, '접촉 간격', 'mm'],
   ['tol', 3, '주름 자동 판정각', '도'],
   ['use_mass', true, '모드 해석 질량', ''],
   ['fold_th1', 45, 'EnhancedLinear θ1 (접힘)', '도'],

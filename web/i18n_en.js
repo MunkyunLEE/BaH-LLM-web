@@ -546,4 +546,8 @@ export const EN = {
   '결과를 감추고 편집 화면으로 돌아감 (결과는 지우지 않음)': 'Hide results and return to the edit view (results are kept)',
   '뉴턴이 수렴하지 않아 에너지 최소화로 넘긴 증분 {n}회 (접촉 해석)': '{n} increments passed by energy minimization after Newton failed (contact analysis)',
   '처음 형상에서 서로 다른 부품이 접촉 간격({g} mm) 이하로 붙어 있습니다. 누름판 등을 간격보다 조금 더 띄워 두세요': 'In the initial shape, separate parts are within the contact gap ({g} mm). Place the platen a little farther than the gap',
+  '접촉 간격 (mm)': 'Contact gap (mm)',
+  '자동 = 두께': 'auto = thickness',
+  '접촉 간격: 닿는 두 면 사이에 남기는 최소 거리 (mm, 패널 두께 역할). 장벽은 간격의 2배 거리 안에서 작동하고 간격에서 무한대. 비우면 패널 두께. 접힌 패널이 겹치는 모델에서 너무 작으면 장벽이 가팔라 막힐 수 있으니 그때 키워서 다시 해석': 'Contact gap: minimum distance kept between touching surfaces (mm, acts as panel thickness). The barrier acts within twice the gap and is infinite at the gap. Empty = panel thickness. Too small a gap can make the barrier steep and block models whose folded panels stack; then increase it and run again',
+  '접촉 간격 {g} mm 로 해석했습니다. 막힌 곳이 더 접힐 수 없는 상태(겹겹이 납작해짐)가 아니라면, 간격이 작아 장벽이 가팔라서일 수 있으니 기하 접촉 아래 접촉 간격을 키워 다시 돌려 보세요': 'Analysed with contact gap {g} mm. Unless the blocked state cannot fold any further (panels stacked flat), a small gap may have made the barrier too steep; increase the contact gap under Geometric contact and run again',
 };

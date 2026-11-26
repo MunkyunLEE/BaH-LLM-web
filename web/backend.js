@@ -448,7 +448,7 @@ export function coreInput(spec, geo) {
   const type = st.type === 'modal' ? 'modal' : st.type === 'kinematic' ? 'kinematic' : st.type === 'arclength' || !moving ? 'force' : 'displacement';
   const inc = st.increments || 100;
   const analysis = { type, dispStep: inc, maxIcr: Math.max(inc, 1), lambda0: st.lambda0 || 1 / inc, lamMax: st.lam_max === null ? -1 : st.lam_max ?? 1, contact: !!bh.contact && (type === 'displacement' || type === 'force'), modes: st.modes || 6, useMass: bh.use_mass !== false, kinSteps: inc };
-  if (bh.gap) analysis.gap = bh.gap;
+  if (analysis.contact) analysis.gap = bh.gap || t;
   if (bh.cycles > 0 && type === 'displacement') {
     analysis.cycles = bh.cycles;
     analysis.cycleBack = bh.cycle_back || 0;
@@ -911,6 +911,7 @@ function buildMeta(res) {
     notes.push(tl('상태: {v}', { v: st ? tl(st) : result.status }));
     if (retries) notes.push(tl('증분 재시도 {n}회 (MERLIN2 방식 보폭 조절)', { n: retries }));
     if (S.spec.bh.contact && result.minDist && result.minDist[0] >= 0 && result.minDist[0] <= (S.spec.bh.gap || 0) * 1.0001) notes.push(tl('처음 형상에서 서로 다른 부품이 접촉 간격({g} mm) 이하로 붙어 있습니다. 누름판 등을 간격보다 조금 더 띄워 두세요', { g: S.spec.bh.gap }));
+    if (result.status === 'contact_blocked' && S.spec.bh.contact) notes.push(tl('접촉 간격 {g} mm 로 해석했습니다. 막힌 곳이 더 접힐 수 없는 상태(겹겹이 납작해짐)가 아니라면, 간격이 작아 장벽이 가팔라서일 수 있으니 기하 접촉 아래 접촉 간격을 키워 다시 돌려 보세요', { g: +(S.spec.bh.gap || S.spec.sections['*'].thickness).toPrecision(4) }));
     const emin = (result.notes || []).filter((q) => q === 'energy_min').length;
     if (emin) notes.push(tl('뉴턴이 수렴하지 않아 에너지 최소화로 넘긴 증분 {n}회 (접촉 해석)', { n: emin }));
   } else if (kind === 'modal') {
